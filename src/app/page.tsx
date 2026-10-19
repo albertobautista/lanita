@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { recordPayment } from "@/app/actions";
+import { recordPayment, settleOverdue } from "@/app/actions";
 import { deleteSampleData, loadSampleData } from "@/app/sample-actions";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
@@ -105,6 +105,11 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
                     <span className="num">{money(st.noInterestPayment)}</span>
                     <div className="row">
                       <StatusPill st={st} />
+                      {f.firstOverduePeriod(c) && (
+                        <ActionButton action={settleOverdue.bind(null, c.id)} confirm={`¿Marcar como pagados todos los meses vencidos de ${c.name}?`} className="btn sm">
+                          Ya lo pagué
+                        </ActionButton>
+                      )}
                       {owed > 0 && (
                         <Dialog trigger="Registrar pago" title={`Pago de ${c.name}`} className="btn sm">
                           <ActionForm action={recordPayment}>

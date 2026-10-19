@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deleteBankStatement, deletePayment, recordDifference, recordPayment, saveBankStatement } from "@/app/actions";
+import { deleteBankStatement, deletePayment, recordDifference, recordPayment, saveBankStatement, settleOverdue } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
@@ -122,6 +122,15 @@ export default async function CardStatementPage({ params, searchParams }: { para
           </div>
         </section>
       </div>
+
+      {f.firstOverduePeriod(card) && (
+        <div className="banner row between">
+          <span>Hay meses vencidos sin pago registrado y su saldo se va sumando a los siguientes. Si ya los pagaste en el banco, márcalos como pagados.</span>
+          <ActionButton action={settleOverdue.bind(null, card.id)} confirm={`¿Marcar como pagados todos los meses vencidos de ${card.name}?`} className="btn sm">
+            Marcar como pagados
+          </ActionButton>
+        </div>
+      )}
 
       <section className="panel">
         <div className="row between">

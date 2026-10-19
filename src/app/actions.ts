@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { COLORS, UNIDENTIFIED_CATEGORY } from "@/lib/catalogs";
 import { loadFinance } from "@/lib/data";
-import { cutoffDate } from "@/lib/finance";
+import { cutoffDate, overduePayments } from "@/lib/finance";
 import { toCents } from "@/lib/format";
 import { addMonths, isPeriod, periodOf, todayISO } from "@/lib/periods";
 
@@ -256,6 +256,15 @@ export async function recordPayment(_: Result | null, fd: FormData): Promise<Res
 export async function deletePayment(id: string): Promise<Result> {
   await db.delete(schema.cardPayments).where(eq(schema.cardPayments.id, id));
   return done("Pago borrado");
+}
+
+/** Marks every past-due statement of the card as paid in full (months paid at the bank but not recorded). */
+export async function settleOverdue(cardId: string): Promise<Result> {
+  const f = await loadFinance();
+  const payments = overduePayments(f.d, f.today, cardId);
+  if (!payments.length) return { ok: false, error: "No hay meses vencidos sin pago en esta tarjeta" };
+  await db.insert(schema.cardPayments).values(payments);
+  return done(`${payments.length} mes${payments.length === 1 ? "" : "es"} marcado${payments.length === 1 ? "" : "s"} como pagado${payments.length === 1 ? "" : "s"}`);
 }
 
 const bankStatementSchema = z.object({

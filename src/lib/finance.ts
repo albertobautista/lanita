@@ -199,6 +199,12 @@ export class Finance {
     return first;
   }
 
+  /** Earliest statement whose due date already passed with nothing paid, if any. */
+  firstOverduePeriod(c: Card) {
+    for (let p = this.firstPeriod(c); p <= this.current; p = addMonths(p, 1)) if (this.statement(c, p).status === "overdue") return p;
+    return null;
+  }
+
   /** Card statement for the payment due in `period`. */
   statement(c: Card, period: string): CardStatement {
     const key = `${c.id}|${period}`;
@@ -431,4 +437,21 @@ export class Finance {
 export function shortPeriodLabel(period: string) {
   const [y, m] = period.split("-").map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString("es-MX", { month: "short", year: "numeric" }).replace(".", "");
+}
+
+/**
+ * Payments that settle, in full and in order, every statement of a card that is past due with nothing paid.
+ * For when you start using the app with months you already paid at the bank but never recorded.
+ */
+export function overduePayments(d: Data, today: string, cardId: string) {
+  const out: { cardId: string; period: string; amount: number; date: string }[] = [];
+  for (let i = 0; i < 240; i++) {
+    const f = new Finance({ ...d, payments: [...d.payments, ...out.map((p, k) => ({ ...p, id: `new-${k}`, accountId: null, isSample: false, createdAt: today }))] }, today);
+    const c = f.card(cardId);
+    const period = c && f.firstOverduePeriod(c);
+    if (!c || !period) break;
+    const st = f.statement(c, period);
+    out.push({ cardId, period, amount: st.noInterestPayment - st.paid, date: st.dueDate });
+  }
+  return out;
 }

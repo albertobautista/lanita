@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Card, CardPayment, Purchase, Recurring, RecurringPrice, Transaction } from "@/db/schema";
-import { chargeInPeriod, Finance, nextCharge, paymentPeriod, pendingOccurrences, purchaseSchedule, type Data } from "./finance";
+import { chargeInPeriod, Finance, nextCharge, overduePayments, paymentPeriod, pendingOccurrences, purchaseSchedule, type Data } from "./finance";
 import { addMonths } from "./periods";
 
 const base = { isSample: false, createdAt: "2026-01-01" };
@@ -104,6 +104,24 @@ describe("card statement", () => {
     // Feb–Oct are due by Oct 2; Nov (due Nov 2) is still pending.
     expect(st.paidCount).toBe(9);
     expect(st.remaining).toBe(200_000);
+  });
+  it("settles past-due months that were paid at the bank but never recorded", () => {
+    const d = empty();
+    d.cards[0] = card({ cutoffDay: 12, dueDay: 2 });
+    d.purchases.push(purchase({ amount: 1_100_000, months: 11, date: "2026-01-01" }));
+    const today = "2026-10-19";
+    // Without payments, every unpaid month piles up into October's statement.
+    expect(new Finance(d, today).statement(d.cards[0], "2026-10").noInterestPayment).toBe(900_000);
+    const payments = overduePayments(d, today, "t1");
+    expect(payments.map((p) => p.period)).toEqual(["2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]);
+    expect(payments.every((p) => p.amount === 100_000)).toBe(true);
+    expect(payments[0].date).toBe("2026-02-02");
+    d.payments.push(...payments.map((p, i) => ({ ...p, id: `p${i}`, accountId: null, ...base })));
+    const f = new Finance(d, today);
+    expect(f.statement(d.cards[0], "2026-10").status).toBe("paid");
+    expect(f.statement(d.cards[0], "2026-11").noInterestPayment).toBe(100_000);
+    expect(f.used(d.cards[0])).toBe(200_000);
+    expect(overduePayments(d, today, "t1")).toEqual([]);
   });
 });
 
