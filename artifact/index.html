@@ -1,4 +1,4 @@
-<title>Mis Finanzas</title>
+<title>Lanita</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -162,7 +162,7 @@ dialog form { padding: 20px; display: grid; gap: 14px; }
   <header class="top">
     <div style="display:grid;gap:2px">
       <span class="label">Finanzas personales</span>
-      <h1>Mis Finanzas</h1>
+      <h1>Lanita</h1>
     </div>
     <div class="month" aria-label="Mes">
       <button class="iconbtn" id="prevM" aria-label="Mes anterior">‹</button>
@@ -498,7 +498,7 @@ dialog form { padding: 20px; display: grid; gap: 14px; }
       <div class="fields2"><div class="field"><label for="f-tar">Tarjeta</label><select id="f-tar" name="tarjeta" required>${S.cards.map((c) => opt(c.id, c.nombre, p.tarjeta)).join("")}</select></div>
       <div class="field"><label for="f-fecha">Fecha de compra</label><input id="f-fecha" name="fecha" type="date" required value="${p.fecha || todayISO}"></div></div>
       <div class="fields2"><div class="field"><label for="f-monto">Monto total</label><input id="f-monto" name="monto" type="number" min="1" step="0.01" required value="${p.monto || ""}"></div>
-      <div class="field"><label for="f-meses">Meses</label><select id="f-meses" name="meses">${[3, 6, 9, 10, 12, 13, 15, 18, 20, 24, 36, 48].map((n) => opt(n, `${n} meses`, p.meses || 12)).join("")}</select></div></div>
+      <div class="field"><label for="f-meses">Meses</label><select id="f-meses" name="meses">${[3, 6, 9, 10, 11, 12, 13, 15, 18, 20, 24, 36, 48].map((n) => opt(n, `${n} meses`, p.meses || 12)).join("")}</select></div></div>
       <div class="field"><label for="f-cat">Categoría</label><select id="f-cat" name="categoria">${cats.map((k) => opt(k, k, p.categoria || "Otros")).join("")}</select></div>
       <div class="hint" id="msiHint"></div>
     `, async (d) => {
