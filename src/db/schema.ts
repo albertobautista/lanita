@@ -1,191 +1,192 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-// Todos los montos se guardan en centavos (enteros). Los periodos son "YYYY-MM" y las fechas "YYYY-MM-DD".
+// All amounts are stored in cents (integers). Periods are "YYYY-MM" and dates "YYYY-MM-DD".
 
 const id = () => text("id").primaryKey().$defaultFn(() => crypto.randomUUID());
-const creadoEn = () => text("creado_en").notNull().default(sql`(datetime('now'))`);
+const createdAt = () => text("created_at").notNull().default(sql`(datetime('now'))`);
+const isSample = () => integer("is_sample", { mode: "boolean" }).notNull().default(false);
 
-export const cuentas = sqliteTable("cuentas", {
+export const accounts = sqliteTable("accounts", {
   id: id(),
-  nombre: text("nombre").notNull(),
-  tipo: text("tipo", { enum: ["debito", "efectivo", "ahorro"] }).notNull(),
-  saldoInicial: integer("saldo_inicial").notNull().default(0),
+  name: text("name").notNull(),
+  type: text("type", { enum: ["debit", "cash", "savings"] }).notNull(),
+  openingBalance: integer("opening_balance").notNull().default(0),
   color: text("color").notNull(),
-  ejemplo: integer("ejemplo", { mode: "boolean" }).notNull().default(false),
-  creadoEn: creadoEn(),
+  isSample: isSample(),
+  createdAt: createdAt(),
 });
 
-export const tarjetas = sqliteTable("tarjetas", {
+export const cards = sqliteTable("cards", {
   id: id(),
-  nombre: text("nombre").notNull(),
-  banco: text("banco").notNull().default(""),
-  ultimos4: text("ultimos4").notNull().default(""),
-  limite: integer("limite").notNull(),
-  corte: integer("corte").notNull(),
-  pago: integer("pago").notNull(),
+  name: text("name").notNull(),
+  bank: text("bank").notNull().default(""),
+  last4: text("last4").notNull().default(""),
+  creditLimit: integer("credit_limit").notNull(),
+  cutoffDay: integer("cutoff_day").notNull(),
+  dueDay: integer("due_day").notNull(),
   color: text("color").notNull(),
-  // Pago mínimo: porcentaje del saldo de contado y del límite, en puntos base (150 = 1.5 %).
-  minPctSaldo: integer("min_pct_saldo").notNull().default(150),
-  minPctLimite: integer("min_pct_limite").notNull().default(125),
-  // Tasa anual ordinaria (puntos base), informativa para estimar intereses si no pagas completo.
-  tasaAnual: integer("tasa_anual").notNull().default(0),
-  ejemplo: integer("ejemplo", { mode: "boolean" }).notNull().default(false),
-  creadoEn: creadoEn(),
+  // Minimum payment: percentage of the revolving balance and of the limit, in basis points (150 = 1.5 %).
+  minPctBalance: integer("min_pct_balance").notNull().default(150),
+  minPctLimit: integer("min_pct_limit").notNull().default(125),
+  // Ordinary annual rate (basis points), used to estimate interest when not paid in full.
+  annualRate: integer("annual_rate").notNull().default(0),
+  isSample: isSample(),
+  createdAt: createdAt(),
 });
 
-// Compras a meses: sin intereses (tasaAnual = 0) o con intereses.
-export const compras = sqliteTable(
-  "compras",
+// Installment purchases: interest-free (annualRate = 0) or with interest.
+export const purchases = sqliteTable(
+  "purchases",
   {
     id: id(),
-    tarjetaId: text("tarjeta_id").notNull().references(() => tarjetas.id),
-    descripcion: text("descripcion").notNull(),
-    categoria: text("categoria").notNull().default("Otros"),
-    monto: integer("monto").notNull(),
-    meses: integer("meses").notNull(),
-    fecha: text("fecha").notNull(),
-    tasaAnual: integer("tasa_anual").notNull().default(0),
-    conIva: integer("con_iva", { mode: "boolean" }).notNull().default(true),
-    // Si se liquidó antes: el periodo cuyo estado de cuenta incluye el saldo restante.
-    liquidadaPeriodo: text("liquidada_periodo"),
-    ejemplo: integer("ejemplo", { mode: "boolean" }).notNull().default(false),
-    creadoEn: creadoEn(),
+    cardId: text("card_id").notNull().references(() => cards.id),
+    description: text("description").notNull(),
+    category: text("category").notNull().default("Otros"),
+    amount: integer("amount").notNull(),
+    months: integer("months").notNull(),
+    date: text("date").notNull(),
+    annualRate: integer("annual_rate").notNull().default(0),
+    withVat: integer("with_vat", { mode: "boolean" }).notNull().default(true),
+    // If paid off early: the period whose statement includes the remaining balance.
+    settledPeriod: text("settled_period"),
+    isSample: isSample(),
+    createdAt: createdAt(),
   },
-  (t) => [index("compras_tarjeta").on(t.tarjetaId)],
+  (t) => [index("purchases_card").on(t.cardId)],
 );
 
-// Cargos fijos: suscripciones, servicios e ingresos que se repiten.
-export const recurrentes = sqliteTable("recurrentes", {
+// Recurring charges: subscriptions, bills and repeating income.
+export const recurring = sqliteTable("recurring", {
   id: id(),
-  tipo: text("tipo", { enum: ["ingreso", "gasto"] }).notNull(),
-  esSuscripcion: integer("es_suscripcion", { mode: "boolean" }).notNull().default(false),
-  descripcion: text("descripcion").notNull(),
-  categoria: text("categoria").notNull(),
-  frecuencia: text("frecuencia", { enum: ["mensual", "anual"] }).notNull().default("mensual"),
-  dia: integer("dia").notNull(),
-  // Para frecuencia anual: mes del cargo (1-12).
-  mesAnual: integer("mes_anual"),
-  cuentaId: text("cuenta_id").references(() => cuentas.id),
-  tarjetaId: text("tarjeta_id").references(() => tarjetas.id),
-  desde: text("desde").notNull(),
-  // Último periodo con cargo; null = sigue activo. Al cancelar se fija aquí.
-  hasta: text("hasta"),
-  canceladaEn: text("cancelada_en"),
-  ejemplo: integer("ejemplo", { mode: "boolean" }).notNull().default(false),
-  creadoEn: creadoEn(),
+  type: text("type", { enum: ["income", "expense"] }).notNull(),
+  isSubscription: integer("is_subscription", { mode: "boolean" }).notNull().default(false),
+  description: text("description").notNull(),
+  category: text("category").notNull(),
+  frequency: text("frequency", { enum: ["monthly", "yearly"] }).notNull().default("monthly"),
+  day: integer("day").notNull(),
+  // For yearly frequency: month of the charge (1-12).
+  yearlyMonth: integer("yearly_month"),
+  accountId: text("account_id").references(() => accounts.id),
+  cardId: text("card_id").references(() => cards.id),
+  startPeriod: text("start_period").notNull(),
+  // Last period charged; null = still active. Set when canceling.
+  endPeriod: text("end_period"),
+  canceledOn: text("canceled_on"),
+  isSample: isSample(),
+  createdAt: createdAt(),
 });
 
-// Historial de precio de cada cargo fijo: el monto vigente es el último con desde <= periodo.
-export const recurrentePrecios = sqliteTable(
-  "recurrente_precios",
+// Price history of each recurring charge: the current price is the latest with startPeriod <= period.
+export const recurringPrices = sqliteTable(
+  "recurring_prices",
   {
     id: id(),
-    recurrenteId: text("recurrente_id").notNull().references(() => recurrentes.id, { onDelete: "cascade" }),
-    desde: text("desde").notNull(),
-    monto: integer("monto").notNull(),
+    recurringId: text("recurring_id").notNull().references(() => recurring.id, { onDelete: "cascade" }),
+    startPeriod: text("start_period").notNull(),
+    amount: integer("amount").notNull(),
   },
-  (t) => [uniqueIndex("precio_por_periodo").on(t.recurrenteId, t.desde)],
+  (t) => [uniqueIndex("price_per_period").on(t.recurringId, t.startPeriod)],
 );
 
-export const movimientos = sqliteTable(
-  "movimientos",
+export const transactions = sqliteTable(
+  "transactions",
   {
     id: id(),
-    tipo: text("tipo", { enum: ["ingreso", "gasto"] }).notNull(),
-    fecha: text("fecha").notNull(),
-    monto: integer("monto").notNull(),
-    categoria: text("categoria").notNull(),
-    descripcion: text("descripcion").notNull().default(""),
-    cuentaId: text("cuenta_id").references(() => cuentas.id),
-    tarjetaId: text("tarjeta_id").references(() => tarjetas.id),
-    recurrenteId: text("recurrente_id").references(() => recurrentes.id, { onDelete: "set null" }),
-    periodo: text("periodo"),
-    origen: text("origen", { enum: ["manual", "importado", "chat", "recurrente"] }).notNull().default("manual"),
-    ejemplo: integer("ejemplo", { mode: "boolean" }).notNull().default(false),
-    creadoEn: creadoEn(),
+    type: text("type", { enum: ["income", "expense"] }).notNull(),
+    date: text("date").notNull(),
+    amount: integer("amount").notNull(),
+    category: text("category").notNull(),
+    description: text("description").notNull().default(""),
+    accountId: text("account_id").references(() => accounts.id),
+    cardId: text("card_id").references(() => cards.id),
+    recurringId: text("recurring_id").references(() => recurring.id, { onDelete: "set null" }),
+    period: text("period"),
+    source: text("source", { enum: ["manual", "imported", "chat", "recurring"] }).notNull().default("manual"),
+    isSample: isSample(),
+    createdAt: createdAt(),
   },
-  (t) => [index("mov_fecha").on(t.fecha), uniqueIndex("mov_recurrente_periodo").on(t.recurrenteId, t.periodo)],
+  (t) => [index("transactions_date").on(t.date), uniqueIndex("transactions_recurring_period").on(t.recurringId, t.period)],
 );
 
-export const pagosTarjeta = sqliteTable(
-  "pagos_tarjeta",
+export const cardPayments = sqliteTable(
+  "card_payments",
   {
     id: id(),
-    tarjetaId: text("tarjeta_id").notNull().references(() => tarjetas.id),
-    periodo: text("periodo").notNull(),
-    monto: integer("monto").notNull(),
-    fecha: text("fecha").notNull(),
-    cuentaId: text("cuenta_id").references(() => cuentas.id),
-    ejemplo: integer("ejemplo", { mode: "boolean" }).notNull().default(false),
-    creadoEn: creadoEn(),
+    cardId: text("card_id").notNull().references(() => cards.id),
+    period: text("period").notNull(),
+    amount: integer("amount").notNull(),
+    date: text("date").notNull(),
+    accountId: text("account_id").references(() => accounts.id),
+    isSample: isSample(),
+    createdAt: createdAt(),
   },
-  (t) => [index("pago_tarjeta_periodo").on(t.tarjetaId, t.periodo)],
+  (t) => [index("card_payments_card_period").on(t.cardId, t.period)],
 );
 
-// Cifras reales del estado de cuenta del banco. Si existen, mandan sobre lo calculado por la app.
-export const estadosCuenta = sqliteTable(
-  "estados_cuenta",
+// Real figures from the bank statement. When present, they override what the app calculates.
+export const bankStatements = sqliteTable(
+  "bank_statements",
   {
     id: id(),
-    tarjetaId: text("tarjeta_id").notNull().references(() => tarjetas.id, { onDelete: "cascade" }),
-    periodo: text("periodo").notNull(),
-    pagoNoIntereses: integer("pago_no_intereses").notNull(),
-    pagoMinimo: integer("pago_minimo"),
-    notas: text("notas").notNull().default(""),
-    ejemplo: integer("ejemplo", { mode: "boolean" }).notNull().default(false),
-    creadoEn: creadoEn(),
+    cardId: text("card_id").notNull().references(() => cards.id, { onDelete: "cascade" }),
+    period: text("period").notNull(),
+    noInterestPayment: integer("no_interest_payment").notNull(),
+    minimumPayment: integer("minimum_payment"),
+    notes: text("notes").notNull().default(""),
+    isSample: isSample(),
+    createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("estado_tarjeta_periodo").on(t.tarjetaId, t.periodo)],
+  (t) => [uniqueIndex("bank_statements_card_period").on(t.cardId, t.period)],
 );
 
-export const transferencias = sqliteTable("transferencias", {
+export const transfers = sqliteTable("transfers", {
   id: id(),
-  origenId: text("origen_id").notNull().references(() => cuentas.id),
-  destinoId: text("destino_id").notNull().references(() => cuentas.id),
-  monto: integer("monto").notNull(),
-  fecha: text("fecha").notNull(),
-  descripcion: text("descripcion").notNull().default(""),
-  ejemplo: integer("ejemplo", { mode: "boolean" }).notNull().default(false),
-  creadoEn: creadoEn(),
+  fromAccountId: text("from_account_id").notNull().references(() => accounts.id),
+  toAccountId: text("to_account_id").notNull().references(() => accounts.id),
+  amount: integer("amount").notNull(),
+  date: text("date").notNull(),
+  description: text("description").notNull().default(""),
+  isSample: isSample(),
+  createdAt: createdAt(),
 });
 
-export const presupuestos = sqliteTable("presupuestos", {
+export const budgets = sqliteTable("budgets", {
   id: id(),
-  categoria: text("categoria").notNull().unique(),
-  monto: integer("monto").notNull(),
-  ejemplo: integer("ejemplo", { mode: "boolean" }).notNull().default(false),
+  category: text("category").notNull().unique(),
+  amount: integer("amount").notNull(),
+  isSample: isSample(),
 });
 
-export const metas = sqliteTable("metas", {
+export const goals = sqliteTable("goals", {
   id: id(),
-  nombre: text("nombre").notNull(),
-  objetivo: integer("objetivo").notNull(),
-  fechaObjetivo: text("fecha_objetivo"),
+  name: text("name").notNull(),
+  target: integer("target").notNull(),
+  targetDate: text("target_date"),
   color: text("color").notNull(),
-  ejemplo: integer("ejemplo", { mode: "boolean" }).notNull().default(false),
-  creadoEn: creadoEn(),
+  isSample: isSample(),
+  createdAt: createdAt(),
 });
 
-// Aportaciones (positivas) y retiros (negativos) a una meta. Si tienen cuenta, salen o entran de esa cuenta.
-export const aportaciones = sqliteTable("aportaciones", {
+// Contributions (positive) and withdrawals (negative) to a goal. With an account, money leaves or enters it.
+export const contributions = sqliteTable("contributions", {
   id: id(),
-  metaId: text("meta_id").notNull().references(() => metas.id, { onDelete: "cascade" }),
-  fecha: text("fecha").notNull(),
-  monto: integer("monto").notNull(),
-  cuentaId: text("cuenta_id").references(() => cuentas.id),
-  ejemplo: integer("ejemplo", { mode: "boolean" }).notNull().default(false),
+  goalId: text("goal_id").notNull().references(() => goals.id, { onDelete: "cascade" }),
+  date: text("date").notNull(),
+  amount: integer("amount").notNull(),
+  accountId: text("account_id").references(() => accounts.id),
+  isSample: isSample(),
 });
 
-export type Cuenta = typeof cuentas.$inferSelect;
-export type Tarjeta = typeof tarjetas.$inferSelect;
-export type Compra = typeof compras.$inferSelect;
-export type Recurrente = typeof recurrentes.$inferSelect;
-export type RecurrentePrecio = typeof recurrentePrecios.$inferSelect;
-export type Movimiento = typeof movimientos.$inferSelect;
-export type PagoTarjeta = typeof pagosTarjeta.$inferSelect;
-export type EstadoCuentaReal = typeof estadosCuenta.$inferSelect;
-export type Transferencia = typeof transferencias.$inferSelect;
-export type Presupuesto = typeof presupuestos.$inferSelect;
-export type Meta = typeof metas.$inferSelect;
-export type Aportacion = typeof aportaciones.$inferSelect;
+export type Account = typeof accounts.$inferSelect;
+export type Card = typeof cards.$inferSelect;
+export type Purchase = typeof purchases.$inferSelect;
+export type Recurring = typeof recurring.$inferSelect;
+export type RecurringPrice = typeof recurringPrices.$inferSelect;
+export type Transaction = typeof transactions.$inferSelect;
+export type CardPayment = typeof cardPayments.$inferSelect;
+export type BankStatement = typeof bankStatements.$inferSelect;
+export type Transfer = typeof transfers.$inferSelect;
+export type Budget = typeof budgets.$inferSelect;
+export type Goal = typeof goals.$inferSelect;
+export type Contribution = typeof contributions.$inferSelect;

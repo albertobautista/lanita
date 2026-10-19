@@ -1,15 +1,19 @@
-export const CATEGORIAS_GASTO = [
+// Category names are shown in the app, so they stay in Spanish.
+export const EXPENSE_CATEGORIES = [
   "Súper", "Comida", "Transporte", "Casa", "Servicios", "Suscripciones", "Salud", "Ropa", "Entretenimiento",
   "Electrónica", "Educación", "Viajes", "Mascotas", "Regalos", "Sin identificar", "Otros",
 ] as const;
-export const CATEGORIAS_INGRESO = ["Sueldo", "Freelance", "Venta", "Reembolso", "Intereses", "Otros"] as const;
+export const INCOME_CATEGORIES = ["Sueldo", "Freelance", "Venta", "Reembolso", "Intereses", "Otros"] as const;
 
-export const COLORES = ["#1f3f66", "#6b1d36", "#245a35", "#46368a", "#7d5212", "#23292f", "#0d6e7a", "#8a2f5b"];
+/** Category used when the bank charged more than what was recorded. */
+export const UNIDENTIFIED_CATEGORY = "Sin identificar";
 
-export const PLAZOS = [3, 6, 9, 10, 11, 12, 13, 15, 18, 20, 24, 36, 48];
+export const COLORS = ["#1f3f66", "#6b1d36", "#245a35", "#46368a", "#7d5212", "#23292f", "#0d6e7a", "#8a2f5b"];
 
-// Palabras clave para sugerir categoría al importar o capturar rápido.
-export const PISTAS_CATEGORIA: [RegExp, string][] = [
+export const INSTALLMENT_TERMS = [3, 6, 9, 10, 11, 12, 13, 15, 18, 20, 24, 36, 48];
+
+// Keywords to suggest a category when importing or doing a quick capture.
+export const CATEGORY_HINTS: [RegExp, string][] = [
   [/walmart|soriana|chedraui|costco|sams|heb|la comer|superama|bodega aurrera|oxxo|7-?eleven/i, "Súper"],
   [/uber eats|rappi|didi food|restaurant|starbucks|tacos|pizza|burger|cafe|café/i, "Comida"],
   [/uber|didi|gasolin|pemex|shell|bp |mobil|caseta|estacionamiento|metro|cabify/i, "Transporte"],
@@ -22,7 +26,7 @@ export const PISTAS_CATEGORIA: [RegExp, string][] = [
   [/aeromexico|volaris|viva ?aerobus|airbnb|hotel|booking/i, "Viajes"],
 ];
 
-export function sugerirCategoria(texto: string) {
-  for (const [re, cat] of PISTAS_CATEGORIA) if (re.test(texto)) return cat;
+export function suggestCategory(text: string) {
+  for (const [re, category] of CATEGORY_HINTS) if (re.test(text)) return category;
   return "Otros";
 }

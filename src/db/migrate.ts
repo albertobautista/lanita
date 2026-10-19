@@ -9,5 +9,5 @@ if (url.startsWith("file:")) mkdirSync("./data", { recursive: true });
 const client = createClient({ url, authToken: process.env.DATABASE_AUTH_TOKEN || undefined });
 await migrate(drizzle(client), { migrationsFolder: "./drizzle" });
 await client.execute("PRAGMA foreign_keys = ON");
-console.log("Base de datos lista:", url.startsWith("file:") ? url : "remota");
+console.log("Database ready:", url.startsWith("file:") ? url : "remota");
 client.close();

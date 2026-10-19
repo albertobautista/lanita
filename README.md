@@ -34,7 +34,7 @@ Los datos quedan en `data/lanita.db` (SQLite).
 
 ## Estructura
 
-- `src/lib/finanzas.ts`: toda la lógica financiera (pura, con pruebas en `finanzas.test.ts`).
+- `src/lib/finance.ts`: toda la lógica financiera (pura, con pruebas en `finance.test.ts`).
 - `src/db/schema.ts`: tablas (Drizzle + libSQL). Montos en centavos.
-- `src/app/acciones.ts`: guardar, editar y borrar (Server Actions).
+- `src/app/actions.ts`: guardar, editar y borrar (Server Actions).
 - `artifact/`: la primera versión de la app como página de claude.ai.

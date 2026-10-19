@@ -1,4 +1,4 @@
-name: Pruebas
+name: Tests
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  pruebas:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
