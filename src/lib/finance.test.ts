@@ -105,6 +105,17 @@ describe("card statement", () => {
     expect(st.paidCount).toBe(9);
     expect(st.remaining).toBe(200_000);
   });
+  it("a credit balance does not mark future installments as paid", () => {
+    const d = empty();
+    d.purchases.push(purchase({ amount: 600_000, months: 6, date: "2026-06-03" }));
+    // Paid much more than June's statement: the extra is carried as credit to the next months.
+    d.payments.push(payment({ period: "2026-06", amount: 700_000, date: "2026-06-20" }));
+    const f = new Finance(d, "2026-06-21");
+    expect(f.statement(d.cards[0], "2026-07").status).toBe("paid");
+    const st = f.purchaseStatus(d.purchases[0]);
+    expect(st.paidCount).toBe(1);
+    expect(st.active).toBe(true);
+  });
   it("settles past-due months that were paid at the bank but never recorded", () => {
     const d = empty();
     d.cards[0] = card({ cutoffDay: 12, dueDay: 2 });

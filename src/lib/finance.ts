@@ -271,10 +271,14 @@ export class Finance {
   purchaseStatus(p: Purchase) {
     const c = this.card(p.cardId);
     const schedule = this.schedule(p);
-    // An installment counts as paid once its statement's due date has passed, or earlier if that statement is already paid.
-    const covered = schedule.filter(
-      (x) => !!c && (dueDate(c, x.period) < this.today || ["paid", "no_charges"].includes(this.statement(c, x.period).status)),
-    );
+    // An installment counts as paid once its statement's due date has passed, or earlier if a payment covering that
+    // statement was recorded. A credit balance carried from earlier months does not pay future installments ahead.
+    const covered = schedule.filter((x) => {
+      if (!c) return false;
+      if (dueDate(c, x.period) < this.today) return true;
+      const st = this.statement(c, x.period);
+      return st.paid > 0 && st.paid >= st.noInterestPayment;
+    });
     const plan = c ? planSummary(p, c) : null;
     const remaining = schedule.filter((x) => !covered.includes(x)).reduce((s, x) => s + x.amount, 0);
     return {
