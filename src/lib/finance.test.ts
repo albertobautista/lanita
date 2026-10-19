@@ -137,6 +137,14 @@ describe("simulator and best card", () => {
     expect(sim.rows[0]).toMatchObject({ period: "2026-04", extra: 100_000 });
     expect(sim.rows[6].extra).toBe(0);
   });
+  it("future months assume earlier statements were paid in full", () => {
+    const d = empty();
+    d.purchases.push(purchase({ date: "2026-03-10", months: 12 }));
+    d.transactions.push(expense({ date: "2026-03-10", amount: 500_000 }));
+    const sim = new Finance(d, "2026-04-02").simulate({ cardId: "t1", amount: 600_000, months: 6, date: "2026-04-02", annualRate: 0, withVat: false, settledPeriod: null })!;
+    expect(sim.rows[0].before).toBe(600_000);
+    expect(sim.rows[1].before).toBe(100_000);
+  });
   it("recommends the card that gives the most days to pay", () => {
     const d = empty();
     d.cards.push(card({ id: "t2", name: "Clásica", cutoffDay: 20, dueDay: 10 }));

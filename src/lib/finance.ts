@@ -404,7 +404,11 @@ export class Finance {
     if (!c) return null;
     const plan = planSummary(purchase, c);
     const rows = periodRange(this.current, months).map((period) => {
-      const before = this.d.cards.reduce((s, x) => s + this.statement(x, period).noInterestPayment, 0);
+      // Future months assume each statement gets paid in full, so unpaid balances are not carried forever.
+      const before = this.d.cards.reduce((s, x) => {
+        const st = this.statement(x, period);
+        return s + (period > this.current ? st.installmentsTotal + st.chargesTotal : st.noInterestPayment);
+      }, 0);
       const extra = plan.schedule.filter((x) => x.period === period).reduce((s, x) => s + x.amount, 0);
       const fixed = this.d.recurring.filter((r) => r.type === "expense" && !r.cardId).reduce((s, r) => s + chargeInPeriod(r, this.d.prices, period), 0);
       return { period, before, extra, after: before + extra, fixed };

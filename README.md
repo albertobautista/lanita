@@ -37,4 +37,6 @@ Los datos quedan en `data/lanita.db` (SQLite).
 - `src/lib/finance.ts`: toda la lógica financiera (pura, con pruebas en `finance.test.ts`).
 - `src/db/schema.ts`: tablas (Drizzle + libSQL). Montos en centavos.
 - `src/app/actions.ts`: guardar, editar y borrar (Server Actions).
+- `src/app/*/page.tsx`: las pantallas (`/cards`, `/installments`, `/transactions`, `/subscriptions`, `/accounts`, `/budgets`, `/goals`, `/simulator`).
+- `src/components/`: piezas compartidas de la interfaz (formularios, diálogos, avisos).
 - `artifact/`: la primera versión de la app como página de claude.ai.

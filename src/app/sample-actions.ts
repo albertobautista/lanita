@@ -78,7 +78,7 @@ export async function loadSampleData(): Promise<Result> {
 
   // Payments from previous months: in full on the Oro, and on the Clásica only the minimum one month.
   const payments: (typeof schema.cardPayments.$inferInsert)[] = [];
-  for (let k = -4; k <= -1; k++) {
+  for (let k = -5; k <= -1; k++) {
     payments.push({ cardId: gold.id, period: addMonths(current, k), amount: 0, date: on(k, 22), accountId: payroll.id, ...sample });
     payments.push({ cardId: classic.id, period: addMonths(current, k), amount: 0, date: on(k, 8), accountId: payroll.id, ...sample });
   }
