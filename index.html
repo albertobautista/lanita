@@ -111,6 +111,10 @@ tfoot td { font-weight: 600; border-top: 1px solid var(--line); }
 .plastic .meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; opacity: .92; }
 .plastic .meta b { display: block; font-family: var(--f-num); font-size: 15px; font-weight: 500; }
 .cardbox { display: grid; gap: 10px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stats > div { display: grid; gap: 1px; min-width: 0; }
+.stats b { font-family: var(--f-num); font-weight: 500; font-size: 15px; font-variant-numeric: tabular-nums; }
+.stats b.big { font-size: 18px; }
 
 .chart svg { width: 100%; height: auto; display: block; }
 .chart .ax { fill: var(--muted); font-family: var(--f-num); font-size: 11px; }
@@ -322,7 +326,7 @@ dialog form { padding: 20px; display: grid; gap: 14px; }
         : d.total > 0 ? `<button class="btn sm" data-act="pay" data-id="${c.id}">Marcar pagado</button>` : "";
       return `<div class="pay"><span class="swatch" style="background:${c.color}"></span>
         <div style="min-width:0"><div style="font-weight:600">${esc(c.nombre)}${c.ejemplo ? '<span class="tag-ej">ejemplo</span>' : ""}</div>
-        <div class="small muted">MSI ${fmt(d.msi)} · Contado ${fmt(d.contado)}</div></div>
+        <div class="small muted">MSI ${fmt(d.msi)} · Contado ${fmt(d.contado)}</div>${c.limite ? `<div class="small muted">Disponible <b class="num" style="color:${c.limite - cardDebt(c) < 0 ? "var(--bad)" : "var(--good)"}">${fmt0(c.limite - cardDebt(c))}</b> de ${fmt0(c.limite)}</div>` : ""}</div>
         <div class="amt"><span class="num" style="font-weight:500">${fmt(p ? p.monto : d.total)}</span><div class="row">${pill}${action}</div></div></div>`;
     }).join("");
 
@@ -419,8 +423,14 @@ dialog form { padding: 20px; display: grid; gap: 14px; }
             <div class="meta" style="position:relative;z-index:1"><span>Corte<b>día ${c.corte}</b></span><span>Pago<b>día ${c.pago}</b></span><span style="text-align:right">Pago de ${shortM(M)}<b>${fmt0(d.total)}</b></span></div>
           </div>
           <div style="display:grid;gap:6px;padding:0 2px">
-            <div class="row between small"><span class="muted">Deuda ${fmt0(debt)}${lim ? ` de ${fmt0(lim)}` : ""}</span><span class="muted">${act} MSI activas</span></div>
-            ${lim ? `<div class="bar"><i style="width:${util}%;background:${util > 70 ? "var(--bad)" : util > 40 ? "var(--warn)" : "var(--good)"}"></i></div>` : ""}
+            ${lim ? `<div class="stats">
+              <div><span class="label">Límite</span><b>${fmt0(lim)}</b></div>
+              <div><span class="label">Usado</span><b>${fmt0(debt)}</b></div>
+              <div><span class="label">Disponible</span><b class="big" style="color:${lim - debt < 0 ? "var(--bad)" : "var(--good)"}">${fmt0(lim - debt)}</b></div>
+            </div>
+            <div class="bar"><i style="width:${util}%;background:${util > 70 ? "var(--bad)" : util > 40 ? "var(--warn)" : "var(--good)"}"></i></div>
+            <div class="row between small muted"><span>${Math.round(util)}% usado</span><span>${act} MSI activas</span></div>`
+            : `<div class="row between small"><span class="muted">Usado ${fmt0(debt)} · sin límite registrado</span><button class="btn sm" data-act="edit-card" data-id="${c.id}">Agregar límite</button></div>`}
             <div class="row" style="justify-content:flex-end"><button class="btn ghost sm" data-act="edit-card" data-id="${c.id}">Editar</button><button class="btn ghost sm danger" data-act="del" data-col="cards" data-id="${c.id}">Borrar</button></div>
           </div></div>`;
       }).join("")}</div>
@@ -472,7 +482,7 @@ dialog form { padding: 20px; display: grid; gap: 14px; }
       <div class="field"><label for="f-u4">Últimos 4 dígitos</label><input id="f-u4" name="ultimos4" inputmode="numeric" maxlength="4" pattern="\\d{4}" placeholder="1234" value="${esc(c.ultimos4 || "")}"></div></div>
       <div class="fields2"><div class="field"><label for="f-corte">Día de corte</label><input id="f-corte" name="corte" type="number" min="1" max="31" required value="${c.corte || ""}"></div>
       <div class="field"><label for="f-pago">Día límite de pago</label><input id="f-pago" name="pago" type="number" min="1" max="31" required value="${c.pago || ""}"></div></div>
-      <div class="field"><label for="f-limite">Límite de crédito (opcional)</label><input id="f-limite" name="limite" type="number" min="0" step="0.01" value="${c.limite || ""}"></div>
+      <div class="field"><label for="f-limite">Límite de crédito</label><input id="f-limite" name="limite" type="number" min="1" step="0.01" required placeholder="Ej. 50000" value="${c.limite || ""}"></div>
       <div class="field"><label>Color</label><div class="swatches">${CARD_COLORS.map((k, i) => `<input type="radio" name="color" id="sw${i}" value="${k}"${k === color ? " checked" : ""}><label for="sw${i}" style="background:${k}" title="${k}"></label>`).join("")}</div></div>
     `, async (d) => {
       const doc = { nombre: d.nombre.trim(), banco: d.banco.trim(), ultimos4: d.ultimos4.trim(), corte: Number(d.corte), pago: Number(d.pago), limite: Number(d.limite) || 0, color: d.color || color };
