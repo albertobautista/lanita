@@ -5,7 +5,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
 import { PurchaseFields } from "@/components/forms";
 import { EmptyState, Field, Kpi, PageHeader, ProgressBar, SampleTag } from "@/components/ui";
-import type { Purchase } from "@/db/schema";
+import type { Card, Purchase } from "@/db/schema";
 import type { Finance } from "@/lib/finance";
 import { longDate, money, shortMonthYear } from "@/lib/format";
 import { getFinance } from "@/lib/page-helpers";
@@ -47,15 +47,40 @@ export default async function InstallmentsPage() {
             <Kpi label="Te falta pagar" value={money(pending)} note={`${active.length} compra${active.length === 1 ? "" : "s"} activa${active.length === 1 ? "" : "s"}`} />
           </div>
 
-          <section className="panel">
-            <h2>Activas</h2>
-            {active.length === 0 ? <p className="muted">No tienes compras a meses activas.</p> : <PurchaseTable rows={active} f={f} />}
-          </section>
+          {active.length === 0 ? (
+            <section className="panel">
+              <p className="muted">No tienes compras a meses activas.</p>
+            </section>
+          ) : (
+            byCard(active, cards).map(({ card, rows: cardRows }) => (
+              <section className="panel" key={card.id}>
+                <div className="row between">
+                  <h2 className="row">
+                    <span className="swatch" style={{ background: card.color, width: 30, height: 20, borderRadius: 4, display: "inline-block" }} />
+                    {card.name}
+                  </h2>
+                  <span className="small muted">
+                    Este mes <b className="num">{money(f.installmentsIn(f.current, card.id))}</b> · Falta{" "}
+                    <b className="num">{money(cardRows.reduce((s, r) => s + r.s.remaining, 0))}</b>
+                  </span>
+                </div>
+                <PurchaseTable rows={cardRows} f={f} />
+              </section>
+            ))
+          )}
 
           {finished.length > 0 && (
             <section className="panel">
               <h2>Terminadas</h2>
-              <PurchaseTable rows={finished} f={f} />
+              {byCard(finished, cards).map(({ card, rows: cardRows }) => (
+                <div key={card.id} style={{ display: "grid", gap: 8 }}>
+                  <h3 className="row">
+                    <span className="dot" style={{ background: card.color }} />
+                    {card.name}
+                  </h3>
+                  <PurchaseTable rows={cardRows} f={f} />
+                </div>
+              ))}
             </section>
           )}
         </>
@@ -64,10 +89,25 @@ export default async function InstallmentsPage() {
   );
 }
 
-function PurchaseTable({ rows, f }: { rows: { p: Purchase; s: ReturnType<Finance["purchaseStatus"]> }[]; f: Finance }) {
+type Row = { p: Purchase; s: ReturnType<Finance["purchaseStatus"]> };
+
+/** Groups purchases by card, in the same order as the cards list. */
+function byCard(rows: Row[], cards: Card[]) {
+  return cards.map((card) => ({ card, rows: rows.filter((r) => r.p.cardId === card.id) })).filter((g) => g.rows.length > 0);
+}
+
+function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
   return (
     <div className="tablewrap">
-      <table>
+      <table style={{ tableLayout: "fixed", minWidth: 760 }}>
+        {/* Same column widths in every card group so the tables line up. */}
+        <colgroup>
+          <col style={{ width: "32%" }} />
+          <col style={{ width: "12%" }} />
+          <col style={{ width: "19%" }} />
+          <col style={{ width: "13%" }} />
+          <col style={{ width: "24%" }} />
+        </colgroup>
         <thead>
           <tr>
             <th>Compra</th>
@@ -84,7 +124,7 @@ function PurchaseTable({ rows, f }: { rows: { p: Purchase; s: ReturnType<Finance
                 <b>{p.description}</b>
                 <SampleTag show={p.isSample} />
                 <div className="small muted">
-                  {s.card?.name} · {money(p.amount)} a {p.months} meses{p.annualRate > 0 && ` · ${p.annualRate / 100} % anual`} · {longDate(p.date)}
+                  {money(p.amount)} a {p.months} meses{p.annualRate > 0 && ` · ${p.annualRate / 100} % anual`} · {longDate(p.date)}
                 </div>
                 <details>
                   <summary>Calendario</summary>
