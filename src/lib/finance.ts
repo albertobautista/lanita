@@ -265,8 +265,10 @@ export class Finance {
   purchaseStatus(p: Purchase) {
     const c = this.card(p.cardId);
     const schedule = this.schedule(p);
-    const currentPaid = c ? ["paid", "no_charges"].includes(this.statement(c, this.current).status) : false;
-    const covered = schedule.filter((x) => x.period < this.current || (x.period === this.current && currentPaid));
+    // An installment counts as paid once its statement's due date has passed, or earlier if that statement is already paid.
+    const covered = schedule.filter(
+      (x) => !!c && (dueDate(c, x.period) < this.today || ["paid", "no_charges"].includes(this.statement(c, x.period).status)),
+    );
     const plan = c ? planSummary(p, c) : null;
     const remaining = schedule.filter((x) => !covered.includes(x)).reduce((s, x) => s + x.amount, 0);
     return {

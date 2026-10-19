@@ -94,6 +94,17 @@ describe("card statement", () => {
     expect(st.paidCount).toBe(2);
     expect(st.remaining).toBe(1_000_000);
   });
+  it("an installment whose due date already passed counts as paid", () => {
+    const d = empty();
+    d.cards[0] = card({ cutoffDay: 12, dueDay: 2 });
+    d.purchases.push(purchase({ amount: 1_100_000, months: 11, date: "2026-01-01" }));
+    const st = new Finance(d, "2026-10-19").purchaseStatus(d.purchases[0]);
+    expect(st.schedule[0].period).toBe("2026-02");
+    expect(st.end).toBe("2026-12");
+    // Feb–Oct are due by Oct 2; Nov (due Nov 2) is still pending.
+    expect(st.paidCount).toBe(9);
+    expect(st.remaining).toBe(200_000);
+  });
 });
 
 describe("recurring charges and subscriptions", () => {
