@@ -17,6 +17,7 @@ const SECTIONS = [
 
 export function Nav() {
   const path = usePathname();
+  if (path === "/login") return null;
   return (
     <nav className="tabs" aria-label="Secciones">
       {SECTIONS.map(([href, label]) => {

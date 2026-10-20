@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { LogoutButton } from "@/components/LogoutButton";
 import { Nav } from "@/components/Nav";
 import { ToastProvider } from "@/components/Toast";
+import { isAuthEnabled } from "@/lib/session";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -29,6 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/" className="brand">
                 Lanita
               </Link>
+              {isAuthEnabled() && <LogoutButton />}
             </div>
             <Nav />
             <main style={{ display: "grid", gap: 24 }}>{children}</main>
