@@ -215,6 +215,21 @@ describe("month summary", () => {
   });
 });
 
+describe("alerts", () => {
+  it("warns about a fixed bill paid from an account like a card payment", () => {
+    const d = empty();
+    d.recurring.push({
+      id: "r1", type: "expense", isSubscription: false, description: "Renta", category: "Casa", frequency: "monthly", day: 22,
+      yearlyMonth: null, accountId: "a1", cardId: null, startPeriod: "2026-01", endPeriod: null, canceledOn: null, ...base,
+    });
+    d.prices.push({ id: "p1", recurringId: "r1", startPeriod: "2026-01", amount: 800_000 });
+    const f = new Finance(d, "2026-10-20");
+    expect(f.alerts()).toContainEqual({ level: "warning", text: "Renta: paga el 22 (en 2 días)", href: "/subscriptions" });
+    expect(new Finance(d, "2026-10-16").alerts()).toEqual([]);
+    expect(f.monthSummary("2026-10").projectedExpenses).toBe(800_000);
+  });
+});
+
 describe("simulator and best card", () => {
   it("a new purchase lowers available credit and adds to upcoming payments", () => {
     const d = empty();
