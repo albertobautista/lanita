@@ -11,9 +11,10 @@ Estoy construyendo **Lanita**, mi app personal de finanzas, en Next.js 16 (App R
 - Las suscripciones guardan historial de precios (vigente desde un mes) y se cancelan indicando el último mes que se cobra.
 
 **Convenciones del código:**
+- Todo el código, carpetas, archivos, rutas y tablas en inglés; los textos que ve el usuario, en español de México.
 - Montos en centavos (enteros); fechas "YYYY-MM-DD"; periodos "YYYY-MM".
-- La lógica financiera vive en `src/lib/finanzas.ts`, pura y con pruebas en Vitest; las pantallas solo la consumen.
-- Validación con Zod en `src/app/acciones.ts`.
+- La lógica financiera vive en `src/lib/finance.ts`, pura y con pruebas en Vitest; las pantallas solo la consumen.
+- Validación con Zod en `src/app/actions.ts`.
 - Next.js 16: `proxy.ts` en lugar de middleware, y `params`/`searchParams` asíncronos.
 
 **Cómo quiero que me ayudes:** explícame en español sencillo, dame código completo listo para pegar y, si un cambio afecta los cálculos de dinero, agrega o actualiza la prueba correspondiente.
