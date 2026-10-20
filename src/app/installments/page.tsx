@@ -147,8 +147,13 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
               <td style={{ minWidth: 120 }}>
                 <ProgressBar value={s.months ? s.paidCount / s.months : 0} color={s.card?.color} />
                 <span className="small muted">
-                  {s.paidCount} de {s.months} · termina {shortMonthYear(s.end)}
+                  {s.paidCount} de {s.months} pagadas · termina {shortMonthYear(s.end)}
                 </span>
+                {s.billedCount > s.paidCount && s.active && (
+                  <span className="small muted" style={{ display: "block" }}>
+                    Tu estado de cuenta ya dice {Math.min(s.billedCount, s.months)} de {s.months}
+                  </span>
+                )}
                 {s.settled && <span className="pill good">Liquidada</span>}
               </td>
               <td className="r num">{money(s.remaining)}</td>

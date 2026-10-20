@@ -291,6 +291,8 @@ export class Finance {
       interest: plan?.interest ?? 0,
       months: p.settledPeriod ? schedule.length : p.months,
       paidCount: covered.length,
+      // Banks number installments by statement: once a cutoff passes, its installment shows as "n of N" before it is paid.
+      billedCount: c ? schedule.filter((x) => cutoffDate(c, x.period) <= this.today).length : covered.length,
       remaining,
       active: covered.length < schedule.length,
       settled: !!p.settledPeriod,

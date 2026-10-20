@@ -105,6 +105,15 @@ describe("card statement", () => {
     expect(st.paidCount).toBe(9);
     expect(st.remaining).toBe(200_000);
   });
+  it("counts installments already on a bank statement apart from the paid ones", () => {
+    const d = empty();
+    d.cards[0] = card({ cutoffDay: 12, dueDay: 2 });
+    d.purchases.push(purchase({ amount: 600_000, months: 6, date: "2026-08-31" }));
+    const st = new Finance(d, "2026-10-20").purchaseStatus(d.purchases[0]);
+    // 1st installment: Sep 12 statement, due Oct 2 (paid). 2nd: Oct 12 statement, due Nov 2 (billed, not due yet).
+    expect(st.paidCount).toBe(1);
+    expect(st.billedCount).toBe(2);
+  });
   it("a credit balance does not mark future installments as paid", () => {
     const d = empty();
     d.purchases.push(purchase({ amount: 600_000, months: 6, date: "2026-06-03" }));
