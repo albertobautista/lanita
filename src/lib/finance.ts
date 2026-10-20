@@ -418,9 +418,18 @@ export class Finance {
       if (b.level === "over") out.push({ level: "warning", text: `Te pasaste del presupuesto de ${b.budget.category}`, href: "/budgets" });
       else if (b.level === "warning") out.push({ level: "info", text: `Llevas el ${Math.round(b.pct * 100)} % del presupuesto de ${b.budget.category}`, href: "/budgets" });
     }
-    for (const r of this.d.recurring.filter((r) => r.isSubscription)) {
+    for (const r of this.d.recurring.filter((r) => r.type === "expense")) {
       const next = nextCharge(r, this.d.prices, this.today);
-      if (next && daysBetween(this.today, next.date) <= 3) out.push({ level: "info", text: `${r.description} se cobra el ${Number(next.date.slice(8))}`, href: "/subscriptions" });
+      if (!next) continue;
+      const days = daysBetween(this.today, next.date);
+      const day = Number(next.date.slice(8));
+      // Fixed bills are warned like a card payment; subscriptions charge themselves, so a short notice is enough.
+      if (r.isSubscription) {
+        if (days <= 3) out.push({ level: "info", text: `${r.description} se cobra el ${day}`, href: "/subscriptions" });
+      } else if (days <= 5) {
+        const when = days === 0 ? "hoy" : `en ${days} ${days === 1 ? "día" : "días"}`;
+        out.push({ level: "warning", text: `${r.description}: ${r.cardId ? "se cobra" : "paga"} el ${day} (${when})`, href: "/subscriptions" });
+      }
     }
     const order = { critical: 0, warning: 1, info: 2 };
     return out.sort((a, b) => order[a.level] - order[b.level]);
