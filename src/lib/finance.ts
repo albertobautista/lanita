@@ -306,17 +306,31 @@ export class Finance {
     return s;
   }
 
-  /** Recurring charges not yet recorded as transactions in `period` (projection). */
+  /** Month a transaction counts in: card expenses count when their statement is due, everything else on its date. */
+  countingPeriod(t: Pick<Transaction, "type" | "date" | "cardId">) {
+    const c = t.type === "expense" ? this.card(t.cardId) : undefined;
+    return c ? paymentPeriod(c, t.date) : periodOf(t.date);
+  }
+
+  /** Recurring charges not yet recorded as transactions that count in `period` (projection). */
   projected(period: string) {
-    const done = new Set(this.d.transactions.filter((t) => t.recurringId && t.period === period).map((t) => t.recurringId));
-    return this.d.recurring
-      .filter((r) => !done.has(r.id))
-      .map((r) => ({ recurring: r, amount: chargeInPeriod(r, this.d.prices, period), date: dateInPeriod(period, r.day) }))
-      .filter((x) => x.amount > 0 && x.date >= this.today);
+    const done = new Set(this.d.transactions.filter((t) => t.recurringId && t.period).map((t) => `${t.recurringId}|${t.period}`));
+    const out: { recurring: Recurring; amount: number; date: string }[] = [];
+    for (const r of this.d.recurring) {
+      // A card charge is paid with its statement, up to two months after it is made.
+      const charged = r.type === "expense" && this.card(r.cardId) ? [addMonths(period, -2), addMonths(period, -1), period] : [period];
+      for (const p of charged) {
+        const date = dateInPeriod(p, r.day);
+        if (done.has(`${r.id}|${p}`) || date < this.today || this.countingPeriod({ type: r.type, date, cardId: r.cardId }) !== period) continue;
+        const amount = chargeInPeriod(r, this.d.prices, p);
+        if (amount > 0) out.push({ recurring: r, amount, date });
+      }
+    }
+    return out;
   }
 
   monthSummary(period: string) {
-    const txs = this.d.transactions.filter((t) => periodOf(t.date) === period);
+    const txs = this.d.transactions.filter((t) => this.countingPeriod(t) === period);
     const proj = this.projected(period);
     const income = txs.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
     const expenses = txs.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
