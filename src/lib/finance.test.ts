@@ -178,6 +178,43 @@ describe("recurring charges and subscriptions", () => {
   });
 });
 
+describe("month summary", () => {
+  it("a card expense after the cutoff counts in the month its statement is due", () => {
+    const d = empty();
+    d.cards[0] = card({ cutoffDay: 12, dueDay: 2 });
+    // Oct 20 is after the Oct 12 cutoff: Nov 12 statement, due Dec 2.
+    d.transactions.push(expense({ date: "2026-10-20", amount: 50_000 }), expense({ date: "2026-10-10", amount: 30_000 }));
+    const f = new Finance(d, "2026-10-20");
+    expect(f.monthSummary("2026-10").expenses).toBe(0);
+    expect(f.monthSummary("2026-11").expenses).toBe(30_000);
+    expect(f.monthSummary("2026-12").expenses).toBe(50_000);
+  });
+  it("expenses paid from an account and income count on their date", () => {
+    const d = empty();
+    d.transactions.push(expense({ date: "2026-10-20", cardId: null, accountId: "a1" }), expense({ type: "income", date: "2026-10-20", cardId: null, accountId: "a1" }));
+    const s = new Finance(d, "2026-10-20").monthSummary("2026-10");
+    expect(s.expenses).toBe(100_000);
+    expect(s.income).toBe(100_000);
+  });
+  it("projects a card subscription in the month its statement is due, only once", () => {
+    const d = empty();
+    d.cards[0] = card({ cutoffDay: 12, dueDay: 2 });
+    d.recurring.push({
+      id: "r1", type: "expense", isSubscription: true, description: "Streaming", category: "Entretenimiento", frequency: "monthly", day: 15,
+      yearlyMonth: null, accountId: null, cardId: "t1", startPeriod: "2026-01", endPeriod: null, canceledOn: null, ...base,
+    });
+    d.prices.push({ id: "p1", recurringId: "r1", startPeriod: "2026-01", amount: 19_900 });
+    const f = new Finance(d, "2026-10-14");
+    // Charged Oct 15 → Nov 12 statement, due Dec 2.
+    expect(f.monthSummary("2026-11").projectedExpenses).toBe(0);
+    expect(f.projected("2026-12").map((x) => x.date)).toEqual(["2026-10-15"]);
+    d.transactions.push(expense({ date: "2026-10-15", amount: 19_900, recurringId: "r1", period: "2026-10" }));
+    const g = new Finance(d, "2026-10-16");
+    expect(g.projected("2026-12")).toEqual([]);
+    expect(g.monthSummary("2026-12").expenses).toBe(19_900);
+  });
+});
+
 describe("simulator and best card", () => {
   it("a new purchase lowers available credit and adds to upcoming payments", () => {
     const d = empty();
