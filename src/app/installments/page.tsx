@@ -99,7 +99,7 @@ function byCard(rows: Row[], cards: Card[]) {
 function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
   return (
     <div className="tablewrap">
-      <table style={{ tableLayout: "fixed", minWidth: 760 }}>
+      <table className="stack fixed">
         {/* Same column widths in every card group so the tables line up. */}
         <colgroup>
           <col style={{ width: "32%" }} />
@@ -120,7 +120,7 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
         <tbody>
           {rows.map(({ p, s }) => (
             <tr key={p.id}>
-              <td>
+              <td className="full">
                 <b>{p.description}</b>
                 <SampleTag show={p.isSample} />
                 <div className="small muted">
@@ -143,8 +143,10 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
                   </table>
                 </details>
               </td>
-              <td className="r num">{money(s.installment)}</td>
-              <td style={{ minWidth: 120 }}>
+              <td className="r num" data-label="Mensualidad">
+                {money(s.installment)}
+              </td>
+              <td className="full" style={{ minWidth: 120 }}>
                 <ProgressBar value={s.months ? s.paidCount / s.months : 0} color={s.card?.color} />
                 <span className="small muted">
                   {s.paidCount} de {s.months} pagadas · termina {shortMonthYear(s.end)}
@@ -156,8 +158,10 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
                 )}
                 {s.settled && <span className="pill good">Liquidada</span>}
               </td>
-              <td className="r num">{money(s.remaining)}</td>
-              <td>
+              <td className="r num" data-label="Falta">
+                {money(s.remaining)}
+              </td>
+              <td className="full">
                 <div className="row">
                   <Dialog trigger="Editar" title={`Editar ${p.description}`} className="btn ghost sm">
                     <ActionForm action={savePurchase} resetOnSuccess={false}>

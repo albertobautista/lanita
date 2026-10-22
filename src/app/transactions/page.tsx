@@ -81,7 +81,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
           <EmptyState title="Sin movimientos en este mes" />
         ) : (
           <div className="tablewrap">
-            <table>
+            <table className="stack">
               <thead>
                 <tr>
                   <th>Fecha</th>
@@ -95,19 +95,22 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
               <tbody>
                 {list.map((t) => (
                   <tr key={t.id}>
-                    <td className="small">{shortDate(t.date)}</td>
-                    <td>
+                    <td className="small wide-only">{shortDate(t.date)}</td>
+                    <td className="grow">
                       {t.description || "—"}
                       {t.recurringId && <span className="pill neutral" style={{ marginLeft: 6 }}>fijo</span>}
                       <SampleTag show={t.isSample} />
+                      <div className="small muted narrow-only">
+                        {shortDate(t.date)} · {t.category} · {f.card(t.cardId)?.name ?? f.account(t.accountId)?.name ?? "—"}
+                      </div>
                     </td>
-                    <td className="small">{t.category}</td>
-                    <td className="small muted">{f.card(t.cardId)?.name ?? f.account(t.accountId)?.name ?? "—"}</td>
+                    <td className="small wide-only">{t.category}</td>
+                    <td className="small muted wide-only">{f.card(t.cardId)?.name ?? f.account(t.accountId)?.name ?? "—"}</td>
                     <td className={`r num ${t.type === "income" ? "pos" : ""}`}>
                       {t.type === "income" ? "+" : "−"}
                       {money(t.amount)}
                     </td>
-                    <td>
+                    <td className="full">
                       <div className="row">
                         <Dialog trigger="Editar" title={t.type === "income" ? "Editar ingreso" : "Editar gasto"} className="btn ghost sm">
                           <ActionForm action={saveTransaction} resetOnSuccess={false}>
