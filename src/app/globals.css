@@ -157,6 +157,13 @@ body { margin: 0; }
 a { color: var(--accent); }
 nav.tabs a { color: var(--muted); font-weight: 600; padding: 10px 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; text-decoration: none; }
 nav.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+nav.tabs a.secondary { font-weight: 500; }
+.tabs-sep { flex: none; width: 1px; margin: 10px 6px; background: var(--line); }
+
+/* Phones: sections move to a bottom bar; "Más" opens a sheet with the rest */
+.bottombar, .moresheet { display: none; }
+.narrow-only { display: none; }
+table.fixed { table-layout: fixed; min-width: 760px; }
 .brand { font-family: var(--f-display); font-weight: 700; font-size: 22px; color: var(--ink); text-decoration: none; }
 .month a { display: inline-grid; place-items: center; text-decoration: none; }
 a.btn { text-decoration: none; display: inline-flex; align-items: center; }
@@ -176,4 +183,32 @@ td .row { flex-wrap: nowrap; justify-content: flex-end; }
 @media (max-width: 520px) {
   .pay { grid-template-columns: auto 1fr; }
   .pay .amt { grid-column: 1 / -1; justify-items: start; }
+}
+
+@media (max-width: 720px) {
+  nav.tabs { display: none; }
+  .wrap { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .bottombar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; background: var(--surface); border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)); }
+  .bottombar a, .bottombar button { display: grid; justify-items: center; gap: 2px; padding: 4px 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11px; font-weight: 600; text-decoration: none; cursor: pointer; }
+  .bottombar [aria-current="page"] { color: var(--accent); }
+  .moresheet { display: block; position: fixed; inset: 0; z-index: 14; background: rgba(10, 20, 18, .35); }
+  .moresheet .sheet { position: absolute; left: 12px; right: 12px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 6px; display: grid; }
+  .moresheet .sheet a { padding: 12px 14px; border-radius: 10px; color: var(--ink); text-decoration: none; font-weight: 600; }
+  .moresheet .sheet a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+  .btn.quickadd { position: fixed; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); z-index: 13; border-radius: 999px; padding: 12px 18px; box-shadow: 0 4px 14px rgba(0, 0, 0, .2); }
+  .toast { bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Tables become stacked rows: main text and amount on top, labeled figures below, actions last */
+  .wide-only, table.stack > tbody > tr > td.wide-only { display: none; }
+  .narrow-only { display: block; }
+  table.stack, table.stack.fixed { display: block; min-width: 0; }
+  table.stack > colgroup, table.stack > thead { display: none; }
+  table.stack > tbody { display: block; }
+  table.stack > tbody > tr { display: grid; grid-template-columns: 1fr auto; grid-auto-flow: dense; gap: 6px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  table.stack > tbody > tr:last-child { border-bottom: 0; }
+  table.stack > tbody > tr > td { display: block; padding: 0; border: 0; min-width: 0 !important; }
+  table.stack > tbody > tr > td.full { grid-column: 1 / -1; }
+  table.stack > tbody > tr > td[data-label] { text-align: left; }
+  table.stack > tbody > tr > td[data-label]::before { content: attr(data-label); display: block; font-family: var(--f-body); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+  table.stack td .row { justify-content: flex-start; flex-wrap: wrap; }
 }
