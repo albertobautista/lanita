@@ -6,6 +6,7 @@ import { Dialog } from "@/components/Dialog";
 import { RowMenu } from "@/components/RowMenu";
 import { CardFields } from "@/components/forms";
 import { EmptyState, PageHeader, ProgressBar, StatusPill } from "@/components/ui";
+import { cardBackground, cardInk } from "@/lib/catalogs";
 import { money, money0, shortDate } from "@/lib/format";
 import { getFinance } from "@/lib/page-helpers";
 
@@ -57,7 +58,7 @@ export default async function CardsPage() {
               const st = f.statement(c, f.current);
               return (
                 <article className="cardbox" key={c.id}>
-                  <Link href={`/cards/${c.id}`} className="plastic" style={{ background: c.color, textDecoration: "none" }}>
+                  <Link href={`/cards/${c.id}`} className="plastic" style={{ background: cardBackground(c.color), color: cardInk(c.color), textDecoration: "none" }}>
                     <div className="row between">
                       <span className="bank">{c.bank || c.name}</span>
                       <span className="chip" />

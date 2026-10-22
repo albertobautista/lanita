@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Account, Card } from "@/db/schema";
-import { COLORS } from "@/lib/catalogs";
+import { cardBackground, COLOR_NAMES, COLORS } from "@/lib/catalogs";
 import type { CardStatement } from "@/lib/finance";
 import { monthName } from "@/lib/format";
 import { addMonths } from "@/lib/periods";
@@ -156,7 +156,7 @@ export function ColorField({ idPrefix, value }: { idPrefix: string; value?: stri
         {COLORS.map((c, i) => (
           <span key={c}>
             <input type="radio" name="color" id={`${idPrefix}-${i}`} value={c} defaultChecked={(value ?? COLORS[0]) === c} />
-            <label htmlFor={`${idPrefix}-${i}`} style={{ background: c }} aria-label={`Color ${i + 1}`} />
+            <label htmlFor={`${idPrefix}-${i}`} style={{ background: cardBackground(c) }} aria-label={COLOR_NAMES[c] ?? `Color ${i + 1}`} title={COLOR_NAMES[c]} />
           </span>
         ))}
       </div>

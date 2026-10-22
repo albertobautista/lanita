@@ -6,6 +6,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
 import { PaymentFields } from "@/components/forms";
 import { EmptyState, MonthPicker, PageHeader, ProgressBar, StatusPill } from "@/components/ui";
+import { cardBackground } from "@/lib/catalogs";
 import { money, shortDate, shortMonth } from "@/lib/format";
 import { getFinance, monthParam, type SearchParams } from "@/lib/page-helpers";
 import { addMonths, periodRange } from "@/lib/periods";
@@ -98,7 +99,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
           <div className="pays">
             {payments.map(({ c, st, owed }) => (
               <div className="pay" key={c.id}>
-                <span className="swatch" style={{ background: c.color }} />
+                <span className="swatch" style={{ background: cardBackground(c.color) }} />
                 <div>
                   <Link href={`/cards/${c.id}?month=${month}`}>
                     <b>{c.name}</b>

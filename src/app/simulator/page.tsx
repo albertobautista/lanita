@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { EmptyState, Field, Kpi, PageHeader, SelectField } from "@/components/ui";
-import { INSTALLMENT_TERMS } from "@/lib/catalogs";
+import { cardBackground, INSTALLMENT_TERMS } from "@/lib/catalogs";
 import { money, shortDate, shortMonthYear, toCents } from "@/lib/format";
 import { getFinance, param, type SearchParams } from "@/lib/page-helpers";
 
@@ -111,7 +111,7 @@ export default async function SimulatorPage({ searchParams }: { searchParams: Se
         <div className="pays">
           {best.map((b) => (
             <div className="pay" key={b.card.id}>
-              <span className="swatch" style={{ background: b.card.color }} />
+              <span className="swatch" style={{ background: cardBackground(b.card.color) }} />
               <div>
                 <b>{b.card.name}</b>
                 <div className="small muted">
