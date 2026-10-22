@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { LogoutButton } from "@/components/LogoutButton";
 import { Nav } from "@/components/Nav";
 import { QuickAdd } from "@/components/QuickAdd";
+import { SampleBanner } from "@/components/SampleBanner";
 import { ToastProvider } from "@/components/Toast";
 import { isAuthEnabled } from "@/lib/session";
 import "./globals.css";
@@ -38,7 +39,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </div>
             </div>
             <Nav />
-            <main style={{ display: "grid", gap: 24 }}>{children}</main>
+            <main style={{ display: "grid", gap: 24 }}>
+              <SampleBanner />
+              {children}
+            </main>
           </div>
         </ToastProvider>
       </body>

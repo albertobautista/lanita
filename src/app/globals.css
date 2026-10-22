@@ -149,7 +149,6 @@ dialog form { padding: 20px; display: grid; gap: 14px; }
 .swatches input { position: absolute; opacity: 0; pointer-events: none; }
 .swatches input:checked + label { border-color: var(--ink); }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 500; font-size: 14px; z-index: 20; }
-.tag-sample { font-size: 11px; font-weight: 600; color: var(--warn); background: var(--warn-soft); padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
 @media (prefers-reduced-motion: no-preference) { .bar > i { transition: width .4s ease; } }
 
 /* Next.js: navigation links and form pieces */
@@ -159,6 +158,16 @@ nav.tabs a { color: var(--muted); font-weight: 600; padding: 10px 14px; border-b
 nav.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
 nav.tabs a.secondary { font-weight: 500; }
 .tabs-sep { flex: none; width: 1px; margin: 10px 6px; background: var(--line); }
+
+/* Row actions behind "⋯"; the menu stays mounted (hidden) so the dialogs it opens keep rendering */
+.rowmenu { position: relative; display: inline-flex; }
+.rowmenu .menu { position: fixed; z-index: 12; visibility: hidden; display: grid; min-width: 190px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, .14); }
+.rowmenu .menu[data-open="true"] { visibility: visible; }
+.rowmenu .menu dialog { visibility: visible; }
+.menuitem { border: 0; background: none; color: var(--ink); font: inherit; font-size: 14px; font-weight: 500; text-align: left; padding: 9px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.menuitem:hover, .menuitem:focus-visible { background: var(--accent-soft); }
+.menuitem.danger { color: var(--bad); }
+.menuitem.danger:hover { background: var(--bad-soft); }
 
 /* Phones: sections move to a bottom bar; "Más" opens a sheet with the rest */
 .bottombar, .moresheet { display: none; }
@@ -208,6 +217,7 @@ td .row { flex-wrap: nowrap; justify-content: flex-end; }
   table.stack > tbody > tr:last-child { border-bottom: 0; }
   table.stack > tbody > tr > td { display: block; padding: 0; border: 0; min-width: 0 !important; }
   table.stack > tbody > tr > td.full { grid-column: 1 / -1; }
+  table.stack > tbody > tr > td.span2 { grid-row: span 2; }
   table.stack > tbody > tr > td[data-label] { text-align: left; }
   table.stack > tbody > tr > td[data-label]::before { content: attr(data-label); display: block; font-family: var(--f-body); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
   table.stack td .row { justify-content: flex-start; flex-wrap: wrap; }

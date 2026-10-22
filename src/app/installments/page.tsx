@@ -3,8 +3,9 @@ import { deletePurchase, savePurchase, settlePurchase, undoSettlement } from "@/
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
+import { RowMenu } from "@/components/RowMenu";
 import { PurchaseFields } from "@/components/forms";
-import { EmptyState, Field, Kpi, PageHeader, ProgressBar, SampleTag } from "@/components/ui";
+import { EmptyState, Field, Kpi, PageHeader, ProgressBar } from "@/components/ui";
 import type { Card, Purchase } from "@/db/schema";
 import type { Finance } from "@/lib/finance";
 import { longDate, money, shortMonthYear } from "@/lib/format";
@@ -102,11 +103,11 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
       <table className="stack fixed">
         {/* Same column widths in every card group so the tables line up. */}
         <colgroup>
-          <col style={{ width: "32%" }} />
-          <col style={{ width: "12%" }} />
-          <col style={{ width: "19%" }} />
+          <col style={{ width: "36%" }} />
           <col style={{ width: "13%" }} />
-          <col style={{ width: "24%" }} />
+          <col style={{ width: "29%" }} />
+          <col style={{ width: "14%" }} />
+          <col style={{ width: "8%" }} />
         </colgroup>
         <thead>
           <tr>
@@ -122,7 +123,6 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
             <tr key={p.id}>
               <td className="full">
                 <b>{p.description}</b>
-                <SampleTag show={p.isSample} />
                 <div className="small muted">
                   {money(p.amount)} a {p.months} meses{p.annualRate > 0 && ` · ${p.annualRate / 100} % anual`} · {longDate(p.date)}
                 </div>
@@ -161,18 +161,20 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
               <td className="r num" data-label="Falta">
                 {money(s.remaining)}
               </td>
-              <td className="full">
-                <div className="row">
-                  <Dialog trigger="Editar" title={`Editar ${p.description}`} className="btn ghost sm">
+              <td className="full r">
+                <RowMenu label={p.description}>
+                  <Dialog trigger="Editar" title={`Editar ${p.description}`} className="menuitem">
                     <ActionForm action={savePurchase} resetOnSuccess={false}>
                       <PurchaseFields cards={f.d.cards} purchase={p} today={f.today} />
                     </ActionForm>
                   </Dialog>
                   {s.settled ? (
-                    <ActionButton action={undoSettlement.bind(null, p.id)}>Deshacer liquidación</ActionButton>
+                    <ActionButton action={undoSettlement.bind(null, p.id)} className="menuitem">
+                      Deshacer liquidación
+                    </ActionButton>
                   ) : (
                     s.active && (
-                      <Dialog trigger="Liquidar" title={`Liquidar ${p.description}`} className="btn ghost sm">
+                      <Dialog trigger="Liquidar" title={`Liquidar ${p.description}`} className="menuitem">
                         <ActionForm action={settlePurchase} submitLabel="Liquidar">
                           <input type="hidden" name="id" value={p.id} />
                           <Field label="¿En qué estado de cuenta pagas el resto?">
@@ -183,10 +185,10 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
                       </Dialog>
                     )
                   )}
-                  <ActionButton action={deletePurchase.bind(null, p.id)} confirm={`¿Borrar la compra ${p.description}?`} className="btn ghost sm danger">
+                  <ActionButton action={deletePurchase.bind(null, p.id)} confirm={`¿Borrar la compra ${p.description}?`} className="menuitem danger">
                     Borrar
                   </ActionButton>
-                </div>
+                </RowMenu>
               </td>
             </tr>
           ))}

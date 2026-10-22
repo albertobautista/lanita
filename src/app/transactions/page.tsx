@@ -3,8 +3,9 @@ import { deleteTransaction, saveTransaction } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
+import { RowMenu } from "@/components/RowMenu";
 import { TransactionFields } from "@/components/forms";
-import { EmptyState, Kpi, MonthPicker, PageHeader, SampleTag } from "@/components/ui";
+import { EmptyState, Kpi, MonthPicker, PageHeader } from "@/components/ui";
 import { money, shortDate } from "@/lib/format";
 import { getFinance, monthParam, param, type SearchParams } from "@/lib/page-helpers";
 import { periodOf } from "@/lib/periods";
@@ -34,24 +35,23 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     <>
       <PageHeader title="Ingresos y gastos">
         <MonthPicker path="/transactions" month={month} extra={filter === "all" ? {} : { type: filter }} />
-      </PageHeader>
-
-      {canRecord ? (
-        <div className="row">
+        {accounts.length > 0 && (
+          <Dialog trigger="Nuevo ingreso" title="Nuevo ingreso" className="btn">
+            <ActionForm action={saveTransaction}>
+              <TransactionFields type="income" accounts={accounts} cards={cards} today={f.today} />
+            </ActionForm>
+          </Dialog>
+        )}
+        {canRecord && (
           <Dialog trigger="Nuevo gasto" title="Nuevo gasto" className="btn primary">
             <ActionForm action={saveTransaction}>
               <TransactionFields type="expense" accounts={accounts} cards={cards} today={f.today} />
             </ActionForm>
           </Dialog>
-          {accounts.length > 0 && (
-            <Dialog trigger="Nuevo ingreso" title="Nuevo ingreso" className="btn">
-              <ActionForm action={saveTransaction}>
-                <TransactionFields type="income" accounts={accounts} cards={cards} today={f.today} />
-              </ActionForm>
-            </Dialog>
-          )}
-        </div>
-      ) : (
+        )}
+      </PageHeader>
+
+      {!canRecord && (
         <div className="banner info">
           Primero agrega una <Link href="/accounts">cuenta</Link> o una <Link href="/cards">tarjeta</Link> para registrar movimientos.
         </div>
@@ -96,10 +96,9 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
                 {list.map((t) => (
                   <tr key={t.id}>
                     <td className="small wide-only">{shortDate(t.date)}</td>
-                    <td className="grow">
+                    <td className="grow span2">
                       {t.description || "—"}
                       {t.recurringId && <span className="pill neutral" style={{ marginLeft: 6 }}>fijo</span>}
-                      <SampleTag show={t.isSample} />
                       <div className="small muted narrow-only">
                         {shortDate(t.date)} · {t.category} · {f.card(t.cardId)?.name ?? f.account(t.accountId)?.name ?? "—"}
                       </div>
@@ -110,17 +109,17 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
                       {t.type === "income" ? "+" : "−"}
                       {money(t.amount)}
                     </td>
-                    <td className="full">
-                      <div className="row">
-                        <Dialog trigger="Editar" title={t.type === "income" ? "Editar ingreso" : "Editar gasto"} className="btn ghost sm">
+                    <td className="r">
+                      <RowMenu label={t.description || t.category}>
+                        <Dialog trigger="Editar" title={t.type === "income" ? "Editar ingreso" : "Editar gasto"} className="menuitem">
                           <ActionForm action={saveTransaction} resetOnSuccess={false}>
                             <TransactionFields type={t.type} accounts={accounts} cards={cards} tx={t} today={f.today} />
                           </ActionForm>
                         </Dialog>
-                        <ActionButton action={deleteTransaction.bind(null, t.id)} confirm="¿Borrar este movimiento?" className="btn ghost sm danger">
+                        <ActionButton action={deleteTransaction.bind(null, t.id)} confirm="¿Borrar este movimiento?" className="menuitem danger">
                           Borrar
                         </ActionButton>
-                      </div>
+                      </RowMenu>
                     </td>
                   </tr>
                 ))}

@@ -2,6 +2,7 @@ import { deleteBudget, saveBudget } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
+import { RowMenu } from "@/components/RowMenu";
 import { EmptyState, Kpi, MoneyField, MonthPicker, PageHeader, ProgressBar, SelectField } from "@/components/ui";
 import { EXPENSE_CATEGORIES } from "@/lib/catalogs";
 import { money, toPesos } from "@/lib/format";
@@ -49,7 +50,7 @@ export default async function BudgetsPage({ searchParams }: { searchParams: Sear
               {rows.map((r) => {
                 const [tone, label] = LEVELS[r.level];
                 return (
-                  <div className="item" key={r.budget.id} style={{ display: "grid", gap: 6 }}>
+                  <div className="item" key={r.budget.id} style={{ display: "grid", gridTemplateColumns: "1fr", gap: 6 }}>
                     <div className="row between">
                       <b>{r.budget.category}</b>
                       <span className="row">
@@ -62,17 +63,17 @@ export default async function BudgetsPage({ searchParams }: { searchParams: Sear
                     <ProgressBar value={r.pct} color={r.level === "over" ? "var(--bad)" : r.level === "warning" ? "var(--warn)" : undefined} />
                     <div className="row between small muted">
                       <span>{r.remaining >= 0 ? `Te quedan ${money(r.remaining)}` : `Te pasaste por ${money(-r.remaining)}`}</span>
-                      <span className="row">
-                        <Dialog trigger="Cambiar" title={`Presupuesto de ${r.budget.category}`} className="btn ghost sm">
+                      <RowMenu label={r.budget.category}>
+                        <Dialog trigger="Cambiar monto" title={`Presupuesto de ${r.budget.category}`} className="menuitem">
                           <ActionForm action={saveBudget} resetOnSuccess={false}>
                             <input type="hidden" name="category" value={r.budget.category} />
                             <MoneyField label="Monto al mes" name="amount" value={toPesos(r.budget.amount)} />
                           </ActionForm>
                         </Dialog>
-                        <ActionButton action={deleteBudget.bind(null, r.budget.id)} confirm={`¿Borrar el presupuesto de ${r.budget.category}?`} className="btn ghost sm danger">
+                        <ActionButton action={deleteBudget.bind(null, r.budget.id)} confirm={`¿Borrar el presupuesto de ${r.budget.category}?`} className="menuitem danger">
                           Borrar
                         </ActionButton>
-                      </span>
+                      </RowMenu>
                     </div>
                   </div>
                 );
