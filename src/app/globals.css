@@ -244,3 +244,28 @@ td .row { flex-wrap: nowrap; justify-content: flex-end; }
   table.stack > tbody > tr > td[data-label]::before { content: attr(data-label); display: block; font-family: var(--f-body); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
   table.stack td .row { justify-content: flex-start; flex-wrap: wrap; }
 }
+
+/* Months ahead: one bar per month around a zero line, green when money is left, red when it falls short */
+.ahead { display: grid; gap: 6px; }
+.ahead-col { display: grid; grid-template-rows: auto 150px auto; gap: 6px; text-align: center; color: var(--ink); text-decoration: none; border-radius: 8px; padding: 6px 2px; min-width: 0; }
+.ahead-col:hover, .ahead-col:focus-visible { background: var(--accent-soft); }
+.ahead-col[aria-current="true"] .ahead-m { color: var(--ink); font-weight: 700; }
+.ahead-v { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ahead-v.neg { color: var(--bad); }
+.ahead-plot { display: grid; min-height: 0; }
+.ahead-up, .ahead-down { display: flex; justify-content: center; min-height: 0; }
+.ahead-up { align-items: end; border-bottom: 1px solid var(--muted); }
+.ahead-down { align-items: start; }
+.ahead-up > i, .ahead-down > i { width: min(36px, 70%); min-height: 2px; }
+.ahead-up > i { background: var(--good); border-radius: 4px 4px 0 0; }
+.ahead-down > i { background: var(--bad); border-radius: 0 0 4px 4px; }
+.ahead-m { font-size: 12px; color: var(--muted); text-transform: capitalize; }
+@media (max-width: 420px) { .ahead { gap: 2px; } .ahead-v { font-size: 12px; } }
+
+/* Loading: grey shapes that pulse gently */
+.skeleton { display: grid; gap: 24px; }
+.skeleton i { display: block; background: var(--line); border-radius: 12px; }
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton i { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .5; } }
+}

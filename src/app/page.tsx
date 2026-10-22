@@ -4,6 +4,7 @@ import { loadSampleData } from "@/app/sample-actions";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
+import { MonthsAhead } from "@/components/MonthsAhead";
 import { PaymentFields } from "@/components/forms";
 import { Amount, EmptyState, MonthPicker, PageHeader, ProgressBar, StatusPill } from "@/components/ui";
 import { cardBackground } from "@/lib/catalogs";
@@ -48,6 +49,10 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
   const toPay = payments.reduce((sum, x) => sum + x.owed, 0);
   const maxCategory = s.byCategory[0]?.[1] ?? 0;
   const best = f.bestCardToday()[0];
+  const ahead = periodRange(month, 6).map((p) => {
+    const m = f.monthSummary(p);
+    return { period: p, left: m.expectedBalance, income: m.income + m.projectedIncome, expenses: m.expenses + m.projectedExpenses, installments: m.installments };
+  });
 
   return (
     <>
@@ -148,6 +153,15 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
           </div>
         </section>
       )}
+
+      <section className="panel">
+        <div className="row between">
+          <h2>Los próximos meses</h2>
+          <span className="small muted">Cuánto te queda cada mes</span>
+        </div>
+        <MonthsAhead months={ahead} selected={month} />
+        <p className="small muted">Cuenta tus ingresos y gastos fijos, lo que ya cargaste a tus tarjetas y las mensualidades. No incluye gastos que todavía no haces.</p>
+      </section>
 
       <div className="grid2">
         <section className="panel">
