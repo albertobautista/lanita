@@ -59,7 +59,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
 
       <div className="kpis">
         <Kpi label="Ingresos" value={money(income)} tone="pos" />
-        <Kpi label="Gastos" value={money(expenses)} />
+        <Kpi label="Gastos" value={money(expenses)} note="Por fecha de compra" />
         <Kpi label="Diferencia" value={money(income - expenses)} tone={income - expenses >= 0 ? "pos" : "neg"} note="Sin contar mensualidades" />
       </div>
 

@@ -5,7 +5,7 @@ import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
 import { PaymentFields } from "@/components/forms";
-import { EmptyState, Kpi, MonthPicker, PageHeader, ProgressBar, StatusPill } from "@/components/ui";
+import { EmptyState, MonthPicker, PageHeader, ProgressBar, StatusPill } from "@/components/ui";
 import { money, shortDate, shortMonth } from "@/lib/format";
 import { getFinance, monthParam, type SearchParams } from "@/lib/page-helpers";
 import { addMonths, periodRange } from "@/lib/periods";
@@ -34,7 +34,17 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
   }
 
   const s = f.monthSummary(month);
-  const alerts = month === f.current ? f.alerts() : [];
+  // Alerts about a statement shown in "Pagos de tarjetas" already show up there as its status.
+  const shownStatements = new Set(cards.map((c) => `/cards/${c.id}?month=${month}`));
+  const alerts = month === f.current ? f.alerts().filter((a) => !shownStatements.has(a.href)) : [];
+  const payments = cards
+    .map((c) => {
+      const st = f.statement(c, month);
+      return { c, st, owed: Math.max(0, st.noInterestPayment - st.paid) };
+    })
+    // Still to pay first, then by due date.
+    .sort((a, b) => Number(b.owed > 0) - Number(a.owed > 0) || a.st.dueDate.localeCompare(b.st.dueDate));
+  const toPay = payments.reduce((sum, x) => sum + x.owed, 0);
   const maxCategory = s.byCategory[0]?.[1] ?? 0;
   const best = f.bestCardToday()[0];
 
@@ -44,12 +54,83 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
         <MonthPicker path="/" month={month} />
       </PageHeader>
 
-      <div className="kpis">
-        <Kpi label="Ingresos" value={money(s.income)} note={s.projectedIncome > 0 ? `+ ${money(s.projectedIncome)} por llegar` : undefined} />
-        <Kpi label="Gastos" value={money(s.expenses)} note={s.projectedExpenses > 0 ? `+ ${money(s.projectedExpenses)} por cobrar` : undefined} />
-        <Kpi label="Mensualidades" value={money(s.installments)} note="Compras a meses" />
-        <Kpi label="Te queda" value={money(s.expectedBalance)} tone={s.expectedBalance >= 0 ? "pos" : "neg"} note="Contando lo que falta del mes" />
-      </div>
+      <section className="panel hero">
+        <div className="hero-main">
+          <span className="label">Te queda este mes</span>
+          <span className={`hero-v ${s.expectedBalance >= 0 ? "pos" : "neg"}`}>{money(s.expectedBalance)}</span>
+          <span className="small muted">Contando lo que falta por llegar y por cobrar</span>
+        </div>
+        <dl className="hero-parts">
+          <div>
+            <dt>Ingresos</dt>
+            <dd className="num">{money(s.income + s.projectedIncome)}</dd>
+            {s.projectedIncome > 0 && <span className="small muted">{money(s.projectedIncome)} por llegar</span>}
+          </div>
+          <div>
+            <dt>Gastos del mes</dt>
+            <dd className="num">− {money(s.expenses + s.projectedExpenses)}</dd>
+            <span className="small muted">{s.projectedExpenses > 0 ? `${money(s.projectedExpenses)} por cobrar · ` : ""}tarjetas por mes de pago</span>
+          </div>
+          <div>
+            <dt>Mensualidades</dt>
+            <dd className="num">− {money(s.installments)}</dd>
+            <Link className="small" href="/installments">
+              Ver compras a meses
+            </Link>
+          </div>
+        </dl>
+      </section>
+
+      <section className="panel">
+        <div className="row between">
+          <h2>Pagos de tarjetas</h2>
+          {toPay > 0 && (
+            <span className="small muted">
+              Te falta pagar <b className="num">{money(toPay)}</b>
+            </span>
+          )}
+        </div>
+        {cards.length === 0 ? (
+          <EmptyState title="Aún no tienes tarjetas">
+            <Link href="/cards">Agregar una tarjeta</Link>
+          </EmptyState>
+        ) : (
+          <div className="pays">
+            {payments.map(({ c, st, owed }) => (
+              <div className="pay" key={c.id}>
+                <span className="swatch" style={{ background: c.color }} />
+                <div>
+                  <Link href={`/cards/${c.id}?month=${month}`}>
+                    <b>{c.name}</b>
+                  </Link>
+                  <div className="small muted">
+                    Pagar antes del {shortDate(st.dueDate)} · mínimo {money(st.minimumPayment)}
+                    {st.paid > 0 && ` · pagaste ${money(st.paid)}`}
+                  </div>
+                </div>
+                <div className="amt">
+                  <span className="num">{money(st.noInterestPayment)}</span>
+                  <div className="row">
+                    <StatusPill st={st} />
+                    {f.firstOverduePeriod(c) && (
+                      <ActionButton action={settleOverdue.bind(null, c.id)} confirm={`¿Marcar como pagados todos los meses vencidos de ${c.name}?`} className="btn sm">
+                        Ya lo pagué
+                      </ActionButton>
+                    )}
+                    {owed > 0 && (
+                      <Dialog trigger="Registrar pago" title={`Pago de ${c.name}`} className="btn sm">
+                        <ActionForm action={recordPayment}>
+                          <PaymentFields cardId={c.id} period={month} amount={owed} accounts={accounts} today={f.today} />
+                        </ActionForm>
+                      </Dialog>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {alerts.length > 0 && (
         <section className="panel">
@@ -64,57 +145,6 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
           </div>
         </section>
       )}
-
-      <section className="panel">
-        <div className="row between">
-          <h2>Pagos de tarjetas</h2>
-          <span className="small muted">Estados de cuenta que vencen en este mes</span>
-        </div>
-        {cards.length === 0 ? (
-          <EmptyState title="Aún no tienes tarjetas">
-            <Link href="/cards">Agregar una tarjeta</Link>
-          </EmptyState>
-        ) : (
-          <div className="pays">
-            {cards.map((c) => {
-              const st = f.statement(c, month);
-              const owed = Math.max(0, st.noInterestPayment - st.paid);
-              return (
-                <div className="pay" key={c.id}>
-                  <span className="swatch" style={{ background: c.color }} />
-                  <div>
-                    <Link href={`/cards/${c.id}?month=${month}`}>
-                      <b>{c.name}</b>
-                    </Link>
-                    <div className="small muted">
-                      Pagar antes del {shortDate(st.dueDate)} · mínimo {money(st.minimumPayment)}
-                      {st.paid > 0 && ` · pagaste ${money(st.paid)}`}
-                    </div>
-                  </div>
-                  <div className="amt">
-                    <span className="num">{money(st.noInterestPayment)}</span>
-                    <div className="row">
-                      <StatusPill st={st} />
-                      {f.firstOverduePeriod(c) && (
-                        <ActionButton action={settleOverdue.bind(null, c.id)} confirm={`¿Marcar como pagados todos los meses vencidos de ${c.name}?`} className="btn sm">
-                          Ya lo pagué
-                        </ActionButton>
-                      )}
-                      {owed > 0 && (
-                        <Dialog trigger="Registrar pago" title={`Pago de ${c.name}`} className="btn sm">
-                          <ActionForm action={recordPayment}>
-                            <PaymentFields cardId={c.id} period={month} amount={owed} accounts={accounts} today={f.today} />
-                          </ActionForm>
-                        </Dialog>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
 
       <div className="grid2">
         <section className="panel">
