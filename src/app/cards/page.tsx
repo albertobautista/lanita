@@ -57,15 +57,14 @@ export default async function CardsPage() {
               const st = f.statement(c, f.current);
               return (
                 <article className="cardbox" key={c.id}>
-                  <Link href={`/cards/${c.id}`} className="plastic compact" style={{ background: c.color, textDecoration: "none" }}>
+                  <Link href={`/cards/${c.id}`} className="plastic" style={{ background: c.color, textDecoration: "none" }}>
                     <div className="row between">
                       <span className="bank">{c.bank || c.name}</span>
                       <span className="chip" />
                     </div>
+                    <span className="digits">•••• {c.last4 || "····"}</span>
                     <div className="meta">
-                      <span>
-                        {c.name} · <span className="digits">•••• {c.last4 || "····"}</span>
-                      </span>
+                      <span>{c.name}</span>
                       <span>
                         Corte {c.cutoffDay} · Pago {c.dueDay}
                       </span>

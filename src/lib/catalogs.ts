@@ -8,7 +8,12 @@ export const INCOME_CATEGORIES = ["Sueldo", "Freelance", "Venta", "Reembolso", "
 /** Category used when the bank charged more than what was recorded. */
 export const UNIDENTIFIED_CATEGORY = "Sin identificar";
 
-export const COLORS = ["#1f3f66", "#6b1d36", "#245a35", "#46368a", "#7d5212", "#23292f", "#0d6e7a", "#8a2f5b"];
+// Dark enough for the white text on card plastics. New colors go at the end: sample data picks by index.
+export const COLORS = [
+  "#1f3f66", "#6b1d36", "#245a35", "#46368a", "#7d5212", "#23292f", "#0d6e7a", "#8a2f5b",
+  "#111418", "#4a5560", "#1e3a8a", "#0b2545", "#b23a2e", "#c2410c", "#8a6d1f", "#a15c4f",
+  "#3f6212", "#0f766e", "#6d28d9", "#9d174d",
+];
 
 export const INSTALLMENT_TERMS = [3, 6, 9, 10, 11, 12, 13, 15, 18, 20, 24, 36, 48];
 

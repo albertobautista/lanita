@@ -106,8 +106,6 @@ tfoot td { font-weight: 600; border-top: 1px solid var(--line); }
 .plastic .meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; opacity: .92; }
 .plastic .meta b { display: block; font-family: var(--f-num); font-size: 15px; font-weight: 500; }
 .cardbox { display: grid; gap: 10px; align-content: start; }
-.plastic.compact { aspect-ratio: auto; min-height: 118px; gap: 18px; }
-.plastic.compact .digits { font-size: 12px; letter-spacing: 0.08em; }
 .cardpay { display: grid; gap: 2px; }
 .cardpay b.num { font-size: 24px; font-weight: 500; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -149,7 +147,8 @@ dialog form { padding: 20px; display: grid; gap: 14px; }
 .fields2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .hint { font-size: 13px; color: var(--muted); background: var(--bg); border-radius: 8px; padding: 10px 12px; }
 .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
-.swatches label { width: 30px; height: 30px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
+.swatches > span { display: flex; }
+.swatches label { display: block; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
 .swatches input { position: absolute; opacity: 0; pointer-events: none; }
 .swatches input:checked + label { border-color: var(--ink); }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 500; font-size: 14px; z-index: 20; }
