@@ -5,7 +5,7 @@ import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
 import { PaymentFields } from "@/components/forms";
-import { EmptyState, MonthPicker, PageHeader, ProgressBar, StatusPill } from "@/components/ui";
+import { Amount, EmptyState, MonthPicker, PageHeader, ProgressBar, StatusPill } from "@/components/ui";
 import { cardBackground } from "@/lib/catalogs";
 import { money, shortDate, shortMonth } from "@/lib/format";
 import { getFinance, monthParam, type SearchParams } from "@/lib/page-helpers";
@@ -58,7 +58,9 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
       <section className="panel hero">
         <div className="hero-main">
           <span className="label">Te queda este mes</span>
-          <span className={`hero-v ${s.expectedBalance >= 0 ? "pos" : "neg"}`}>{money(s.expectedBalance)}</span>
+          <span className={`hero-v ${s.expectedBalance >= 0 ? "pos" : "neg"}`}>
+            <Amount value={money(s.expectedBalance)} />
+          </span>
           <span className="small muted">Contando lo que falta por llegar y por cobrar</span>
         </div>
         <dl className="hero-parts">

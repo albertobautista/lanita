@@ -63,17 +63,23 @@ export default async function SimulatorPage({ searchParams }: { searchParams: Se
 
       {sim && (
         <>
+          {sim.availableAfter < 0 ? (
+            <div className="banner bad">No te alcanza: esta compra rebasa por {money(-sim.availableAfter)} el crédito disponible de {sim.card.name}.</div>
+          ) : sim.income > 0 && sim.peakAfter > sim.income ? (
+            <div className="banner">
+              Cabe en la tarjeta, pero en algún mes tus pagos de tarjetas y cargos fijos ({money(sim.peakAfter)}) superarían tu ingreso típico ({money(sim.income)}).
+            </div>
+          ) : (
+            <div className="banner good">
+              Te alcanza: cabe en {sim.card.name}
+              {sim.income > 0 && " y tus pagos de cada mes quedan por debajo de tu ingreso típico"}.
+            </div>
+          )}
           <div className="kpis">
             <Kpi label={months > 1 ? "Mensualidad" : "Pagas"} value={money(sim.plan.installment)} note={`De ${shortMonthYear(sim.plan.start)} a ${shortMonthYear(sim.plan.end)}`} />
             <Kpi label="Total a pagar" value={money(sim.plan.total)} note={sim.plan.interest > 0 ? `${money(sim.plan.interest)} de intereses` : "Sin intereses"} />
             <Kpi label={`Disponible en ${sim.card.name}`} value={money(sim.availableAfter)} tone={sim.availableAfter < 0 ? "neg" : "pos"} note={`Hoy: ${money(sim.availableBefore)}`} />
           </div>
-          {sim.availableAfter < 0 && <div className="banner">No te alcanza el crédito disponible de esta tarjeta.</div>}
-          {sim.income > 0 && sim.peakAfter > sim.income && (
-            <div className="banner">
-              En algún mes tus pagos de tarjetas y cargos fijos ({money(sim.peakAfter)}) superarían tu ingreso típico ({money(sim.income)}).
-            </div>
-          )}
           <section className="panel">
             <h2>Cómo quedan tus pagos</h2>
             <div className="tablewrap">

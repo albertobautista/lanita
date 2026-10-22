@@ -16,6 +16,12 @@ export default async function AccountsPage() {
   const f = await getFinance();
   const { accounts, transfers } = f.d;
   const total = accounts.reduce((s, a) => s + f.accountBalance(a), 0);
+  // One figure per account type (the list below already shows each account).
+  const byType = (Object.keys(TYPE_LABELS) as (keyof typeof TYPE_LABELS)[])
+    .map((type) => ({ type, list: accounts.filter((a) => a.type === type) }))
+    .filter((g) => g.list.length > 0);
+  // Cash can't go below zero: a negative balance means a withdrawal or an income is missing.
+  const negativeCash = accounts.filter((a) => a.type === "cash" && f.accountBalance(a) < 0);
   const recent = [...transfers].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20);
 
   return (
@@ -57,10 +63,20 @@ export default async function AccountsPage() {
         <>
           <div className="kpis">
             <Kpi label="Total en cuentas" value={money(total)} tone={total >= 0 ? "pos" : "neg"} />
-            {accounts.map((a) => (
-              <Kpi key={a.id} label={a.name} value={money(f.accountBalance(a))} note={TYPE_LABELS[a.type]} />
+            {byType.map((g) => (
+              <Kpi
+                key={g.type}
+                label={TYPE_LABELS[g.type]}
+                value={money(g.list.reduce((sum, a) => sum + f.accountBalance(a), 0))}
+                note={g.list.length === 1 ? g.list[0].name : `${g.list.length} cuentas`}
+              />
             ))}
           </div>
+          {negativeCash.map((a) => (
+            <div className="banner" key={a.id}>
+              {a.name} está en {money(f.accountBalance(a))}. El efectivo no puede quedar en negativo: seguramente falta registrar un retiro del cajero o un ingreso.
+            </div>
+          ))}
           <section className="panel">
             <div className="list">
               {accounts.map((a) => (
@@ -71,7 +87,7 @@ export default async function AccountsPage() {
                     <span className="small muted">{TYPE_LABELS[a.type]}</span>
                   </span>
                   <span className="row">
-                    <b className="num">{money(f.accountBalance(a))}</b>
+                    <b className={`num ${f.accountBalance(a) < 0 ? "neg" : ""}`}>{money(f.accountBalance(a))}</b>
                     <RowMenu label={a.name}>
                     <Dialog trigger="Editar" title={`Editar ${a.name}`} className="menuitem">
                       <ActionForm action={saveAccount} resetOnSuccess={false}>
@@ -105,9 +121,11 @@ export default async function AccountsPage() {
                 </span>
                 <span className="row">
                   <b className="num">{money(t.amount)}</b>
-                  <ActionButton action={deleteTransfer.bind(null, t.id)} confirm="¿Borrar esta transferencia?" className="btn ghost sm danger">
-                    Borrar
-                  </ActionButton>
+                  <RowMenu label={`Transferencia del ${longDate(t.date)}`}>
+                    <ActionButton action={deleteTransfer.bind(null, t.id)} confirm="¿Borrar esta transferencia?" className="menuitem danger">
+                      Borrar
+                    </ActionButton>
+                  </RowMenu>
                 </span>
               </div>
             ))}
