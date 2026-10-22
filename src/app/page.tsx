@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { recordPayment, settleOverdue } from "@/app/actions";
-import { deleteSampleData, loadSampleData } from "@/app/sample-actions";
+import { loadSampleData } from "@/app/sample-actions";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
@@ -36,7 +36,6 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
   const s = f.monthSummary(month);
   const alerts = month === f.current ? f.alerts() : [];
   const maxCategory = s.byCategory[0]?.[1] ?? 0;
-  const hasSamples = [...cards, ...accounts].some((x) => x.isSample);
   const best = f.bestCardToday()[0];
 
   return (
@@ -44,15 +43,6 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
       <PageHeader title="Resumen">
         <MonthPicker path="/" month={month} />
       </PageHeader>
-
-      {hasSamples && (
-        <div className="banner info row between">
-          <span>Estás viendo datos de ejemplo.</span>
-          <ActionButton action={deleteSampleData} confirm="¿Borrar todos los datos de ejemplo?" className="btn sm">
-            Borrar ejemplos
-          </ActionButton>
-        </div>
-      )}
 
       <div className="kpis">
         <Kpi label="Ingresos" value={money(s.income)} note={s.projectedIncome > 0 ? `+ ${money(s.projectedIncome)} por llegar` : undefined} />

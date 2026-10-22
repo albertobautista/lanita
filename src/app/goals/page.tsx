@@ -2,8 +2,9 @@ import { contributeToGoal, deleteContribution, deleteGoal, saveGoal } from "@/ap
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
+import { RowMenu } from "@/components/RowMenu";
 import { GoalFields } from "@/components/forms";
-import { AccountField, EmptyState, Field, MoneyField, PageHeader, ProgressBar, SampleTag, SelectField } from "@/components/ui";
+import { AccountField, EmptyState, Field, MoneyField, PageHeader, ProgressBar, SelectField } from "@/components/ui";
 import { longDate, money, pct } from "@/lib/format";
 import { getFinance } from "@/lib/page-helpers";
 
@@ -40,7 +41,6 @@ export default async function GoalsPage() {
                   <h2 className="row">
                     <span className="dot" style={{ background: g.color }} />
                     {g.name}
-                    <SampleTag show={g.isSample} />
                   </h2>
                   {s.remaining === 0 ? <span className="pill good">¡Lograda!</span> : s.overdue && <span className="pill bad">Se pasó la fecha</span>}
                 </div>
@@ -58,7 +58,7 @@ export default async function GoalsPage() {
                   {g.targetDate && ` · para el ${longDate(g.targetDate)}`}
                   {s.perMonth != null && s.remaining > 0 && ` · aparta ${money(s.perMonth)} al mes`}
                 </p>
-                <div className="row">
+                <div className="row between">
                   <Dialog trigger="Aportar" title={`Aportar a ${g.name}`} className="btn primary sm">
                     <ActionForm action={contributeToGoal}>
                       <input type="hidden" name="goalId" value={g.id} />
@@ -75,14 +75,16 @@ export default async function GoalsPage() {
                       <p className="hint">Si eliges una cuenta, el dinero sale de ella (o regresa, si retiras).</p>
                     </ActionForm>
                   </Dialog>
-                  <Dialog trigger="Editar" title={`Editar ${g.name}`} className="btn ghost sm">
+                  <RowMenu label={g.name}>
+                  <Dialog trigger="Editar" title={`Editar ${g.name}`} className="menuitem">
                     <ActionForm action={saveGoal} resetOnSuccess={false}>
                       <GoalFields goal={g} />
                     </ActionForm>
                   </Dialog>
-                  <ActionButton action={deleteGoal.bind(null, g.id)} confirm={`¿Borrar la meta ${g.name} y sus aportaciones?`} className="btn ghost sm danger">
+                  <ActionButton action={deleteGoal.bind(null, g.id)} confirm={`¿Borrar la meta ${g.name} y sus aportaciones?`} className="menuitem danger">
                     Borrar
                   </ActionButton>
+                  </RowMenu>
                 </div>
                 {history.length > 0 && (
                   <details>

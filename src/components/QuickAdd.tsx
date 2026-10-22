@@ -1,19 +1,12 @@
 import "server-only";
-import { cookies } from "next/headers";
 import { saveTransaction } from "@/app/actions";
 import { db, schema } from "@/db";
-import { isAuthEnabled, SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 import { todayISO } from "@/lib/periods";
+import { canSeeData } from "@/lib/viewer";
 import { ActionForm } from "./ActionForm";
 import { Dialog } from "./Dialog";
 import { TransactionFields } from "./forms";
 import { HideOnLogin } from "./HideOnLogin";
-
-/** Same rule as proxy.ts: without a session the layout must not load (or send) any data. */
-async function canSeeData() {
-  if (!isAuthEnabled()) return process.env.NODE_ENV !== "production";
-  return verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value);
-}
 
 /** "+ Gasto" from any screen: a button in the header, floating above the bottom bar on phones. */
 export async function QuickAdd() {

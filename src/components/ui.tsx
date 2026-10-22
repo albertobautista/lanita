@@ -173,7 +173,3 @@ export function Kpi({ label, value, tone, note }: { label: string; value: string
     </div>
   );
 }
-
-export function SampleTag({ show }: { show: boolean }) {
-  return show ? <span className="tag-sample">ejemplo</span> : null;
-}

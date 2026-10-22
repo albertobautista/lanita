@@ -2,8 +2,9 @@ import { deleteAccount, deleteTransfer, saveAccount, saveTransfer } from "@/app/
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
+import { RowMenu } from "@/components/RowMenu";
 import { AccountFields } from "@/components/forms";
-import { AccountField, EmptyState, Field, Kpi, MoneyField, PageHeader, SampleTag } from "@/components/ui";
+import { AccountField, EmptyState, Field, Kpi, MoneyField, PageHeader } from "@/components/ui";
 import { longDate, money } from "@/lib/format";
 import { getFinance } from "@/lib/page-helpers";
 
@@ -68,18 +69,19 @@ export default async function AccountsPage() {
                     <span className="dot" style={{ background: a.color }} />
                     <b>{a.name}</b>
                     <span className="small muted">{TYPE_LABELS[a.type]}</span>
-                    <SampleTag show={a.isSample} />
                   </span>
                   <span className="row">
                     <b className="num">{money(f.accountBalance(a))}</b>
-                    <Dialog trigger="Editar" title={`Editar ${a.name}`} className="btn ghost sm">
+                    <RowMenu label={a.name}>
+                    <Dialog trigger="Editar" title={`Editar ${a.name}`} className="menuitem">
                       <ActionForm action={saveAccount} resetOnSuccess={false}>
                         <AccountFields account={a} />
                       </ActionForm>
                     </Dialog>
-                    <ActionButton action={deleteAccount.bind(null, a.id)} confirm={`¿Borrar la cuenta ${a.name}?`} className="btn ghost sm danger">
+                    <ActionButton action={deleteAccount.bind(null, a.id)} confirm={`¿Borrar la cuenta ${a.name}?`} className="menuitem danger">
                       Borrar
                     </ActionButton>
+                    </RowMenu>
                   </span>
                 </div>
               ))}

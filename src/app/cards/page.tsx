@@ -3,8 +3,9 @@ import { deleteCard, saveCard } from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
+import { RowMenu } from "@/components/RowMenu";
 import { CardFields } from "@/components/forms";
-import { EmptyState, PageHeader, ProgressBar, SampleTag, StatusPill } from "@/components/ui";
+import { EmptyState, PageHeader, ProgressBar, StatusPill } from "@/components/ui";
 import { money, money0, shortDate } from "@/lib/format";
 import { getFinance } from "@/lib/page-helpers";
 
@@ -63,10 +64,7 @@ export default async function CardsPage() {
                     </div>
                     <span className="digits">•••• {c.last4 || "····"}</span>
                     <div className="meta">
-                      <span>
-                        {c.name}
-                        <SampleTag show={c.isSample} />
-                      </span>
+                      <span>{c.name}</span>
                       <span>
                         Corte {c.cutoffDay} · Pago {c.dueDay}
                       </span>
@@ -93,18 +91,20 @@ export default async function CardsPage() {
                     </span>
                     <StatusPill st={st} />
                   </div>
-                  <div className="row">
+                  <div className="row between">
                     <Link className="btn sm" href={`/cards/${c.id}`}>
                       Estado de cuenta
                     </Link>
-                    <Dialog trigger="Editar" title={`Editar ${c.name}`} className="btn ghost sm">
+                    <RowMenu label={c.name}>
+                    <Dialog trigger="Editar" title={`Editar ${c.name}`} className="menuitem">
                       <ActionForm action={saveCard} resetOnSuccess={false}>
                         <CardFields card={c} />
                       </ActionForm>
                     </Dialog>
-                    <ActionButton action={deleteCard.bind(null, c.id)} confirm={`¿Borrar la tarjeta ${c.name}?`} className="btn ghost sm danger">
+                    <ActionButton action={deleteCard.bind(null, c.id)} confirm={`¿Borrar la tarjeta ${c.name}?`} className="menuitem danger">
                       Borrar
                     </ActionButton>
+                    </RowMenu>
                   </div>
                 </article>
               );

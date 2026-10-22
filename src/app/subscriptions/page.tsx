@@ -3,8 +3,9 @@ import { cancelRecurring, changePrice, deleteRecurring, reactivateRecurring, sav
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
+import { RowMenu } from "@/components/RowMenu";
 import { RecurringFields } from "@/components/forms";
-import { EmptyState, Field, Kpi, MoneyField, PageHeader, SampleTag } from "@/components/ui";
+import { EmptyState, Field, Kpi, MoneyField, PageHeader } from "@/components/ui";
 import type { Recurring } from "@/db/schema";
 import { currentPrice, monthlyEquivalentCost, nextCharge, type Finance } from "@/lib/finance";
 import { longDate, money, shortDate, shortMonthYear, toPesos } from "@/lib/format";
@@ -88,7 +89,6 @@ function Section({ title, items, f }: { title: string; items: Recurring[]; f: Fi
             <div className="item" key={r.id}>
               <div>
                 <b>{r.description}</b>
-                <SampleTag show={r.isSample} />
                 <div className="small muted">
                   {r.category} · {r.frequency === "yearly" ? "anual" : "mensual"}, día {r.day}
                   {via && ` · ${via}`}
@@ -110,29 +110,30 @@ function Section({ title, items, f }: { title: string; items: Recurring[]; f: Fi
               </div>
               <div className="row">
                 <b className={`num ${r.type === "income" ? "pos" : ""}`}>{money(price)}</b>
+                <RowMenu label={r.description}>
                 {canceled ? (
-                  <ActionButton action={reactivateRecurring.bind(null, r.id)} className="btn sm">
+                  <ActionButton action={reactivateRecurring.bind(null, r.id)} className="menuitem">
                     Reactivar
                   </ActionButton>
                 ) : (
                   <>
-                    <Dialog trigger="Cambiar precio" title={`Nuevo precio de ${r.description}`} className="btn ghost sm">
+                    <Dialog trigger={r.type === "income" ? "Cambiar monto" : "Cambiar precio"} title={`${r.type === "income" ? "Nuevo monto" : "Nuevo precio"} de ${r.description}`} className="menuitem">
                       <ActionForm action={changePrice}>
                         <input type="hidden" name="id" value={r.id} />
                         <div className="fields2">
-                          <MoneyField label="Precio nuevo" name="amount" value={toPesos(price)} />
+                          <MoneyField label={r.type === "income" ? "Monto nuevo" : "Precio nuevo"} name="amount" value={toPesos(price)} />
                           <Field label="Desde">
                             <input name="startPeriod" type="month" defaultValue={f.current} required />
                           </Field>
                         </div>
                       </ActionForm>
                     </Dialog>
-                    <Dialog trigger="Editar" title={`Editar ${r.description}`} className="btn ghost sm">
+                    <Dialog trigger="Editar" title={`Editar ${r.description}`} className="menuitem">
                       <ActionForm action={saveRecurring} resetOnSuccess={false}>
                         <RecurringFields type={r.type} accounts={accounts} cards={cards} item={r} price={price} current={f.current} />
                       </ActionForm>
                     </Dialog>
-                    <Dialog trigger="Cancelar" title={`Cancelar ${r.description}`} className="btn ghost sm">
+                    <Dialog trigger="Cancelar" title={`Cancelar ${r.description}`} className="menuitem">
                       <ActionForm action={cancelRecurring} submitLabel="Cancelar">
                         <input type="hidden" name="id" value={r.id} />
                         <Field label="Último mes que se cobra">
@@ -142,9 +143,10 @@ function Section({ title, items, f }: { title: string; items: Recurring[]; f: Fi
                     </Dialog>
                   </>
                 )}
-                <ActionButton action={deleteRecurring.bind(null, r.id, false)} confirm={`¿Borrar ${r.description}? Los cobros ya registrados se quedan como movimientos.`} className="btn ghost sm danger">
+                <ActionButton action={deleteRecurring.bind(null, r.id, false)} confirm={`¿Borrar ${r.description}? Los cobros ya registrados se quedan como movimientos.`} className="menuitem danger">
                   Borrar
                 </ActionButton>
+                </RowMenu>
               </div>
             </div>
           );
