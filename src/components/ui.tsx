@@ -164,11 +164,26 @@ export function ColorField({ idPrefix, value }: { idPrefix: string; value?: stri
   );
 }
 
+/** "$14,500.00" with the ".00" de-emphasized, for big figures. */
+export function Amount({ value }: { value: string }) {
+  const m = value.match(/^(.*)(\.\d{2})$/);
+  return m ? (
+    <>
+      {m[1]}
+      <span className="cents">{m[2]}</span>
+    </>
+  ) : (
+    <>{value}</>
+  );
+}
+
 export function Kpi({ label, value, tone, note }: { label: string; value: string; tone?: "pos" | "neg"; note?: ReactNode }) {
   return (
     <div className="kpi">
       <span className="label">{label}</span>
-      <span className={`v ${tone ?? ""}`}>{value}</span>
+      <span className={`v ${tone ?? ""}`}>
+        <Amount value={value} />
+      </span>
       {note && <span className="small muted">{note}</span>}
     </div>
   );
