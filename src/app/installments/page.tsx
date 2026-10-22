@@ -7,6 +7,7 @@ import { RowMenu } from "@/components/RowMenu";
 import { PurchaseFields } from "@/components/forms";
 import { EmptyState, Field, Kpi, PageHeader, ProgressBar } from "@/components/ui";
 import type { Card, Purchase } from "@/db/schema";
+import { cardBackground } from "@/lib/catalogs";
 import type { Finance } from "@/lib/finance";
 import { longDate, money, shortMonthYear } from "@/lib/format";
 import { getFinance } from "@/lib/page-helpers";
@@ -57,7 +58,7 @@ export default async function InstallmentsPage() {
               <section className="panel" key={card.id}>
                 <div className="row between">
                   <h2 className="row">
-                    <span className="swatch" style={{ background: card.color, width: 30, height: 20, borderRadius: 4, display: "inline-block" }} />
+                    <span className="swatch" style={{ background: cardBackground(card.color), width: 30, height: 20, borderRadius: 4, display: "inline-block" }} />
                     {card.name}
                   </h2>
                   <span className="small muted">

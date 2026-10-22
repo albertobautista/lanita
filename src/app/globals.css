@@ -105,7 +105,9 @@ tfoot td { font-weight: 600; border-top: 1px solid var(--line); }
 .plastic .digits { font-family: var(--f-num); letter-spacing: 0.12em; opacity: .9; }
 .plastic .meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; opacity: .92; }
 .plastic .meta b { display: block; font-family: var(--f-num); font-size: 15px; font-weight: 500; }
-.cardbox { display: grid; gap: 10px; }
+.cardbox { display: grid; gap: 10px; align-content: start; }
+.cardpay { display: grid; gap: 2px; }
+.cardpay b.num { font-size: 24px; font-weight: 500; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .stats > div { display: grid; gap: 1px; min-width: 0; }
 .stats b { font-family: var(--f-num); font-weight: 500; font-size: 15px; font-variant-numeric: tabular-nums; }
@@ -145,7 +147,8 @@ dialog form { padding: 20px; display: grid; gap: 14px; }
 .fields2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .hint { font-size: 13px; color: var(--muted); background: var(--bg); border-radius: 8px; padding: 10px 12px; }
 .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
-.swatches label { width: 30px; height: 30px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
+.swatches > span { display: flex; }
+.swatches label { display: block; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
 .swatches input { position: absolute; opacity: 0; pointer-events: none; }
 .swatches input:checked + label { border-color: var(--ink); }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 500; font-size: 14px; z-index: 20; }
@@ -158,6 +161,21 @@ nav.tabs a { color: var(--muted); font-weight: 600; padding: 10px 14px; border-b
 nav.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
 nav.tabs a.secondary { font-weight: 500; }
 .tabs-sep { flex: none; width: 1px; margin: 10px 6px; background: var(--line); }
+
+/* Summary: one figure up front, the parts that make it below */
+.hero { grid-template-columns: minmax(220px, 1fr) 2fr; align-items: center; gap: 18px 28px; }
+.hero-main { display: grid; gap: 4px; }
+.hero-v { font-family: var(--f-num); font-variant-numeric: tabular-nums; font-size: 40px; font-weight: 500; line-height: 1.1; letter-spacing: -0.02em; }
+.hero-parts { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.hero-parts > div { display: grid; gap: 2px; align-content: start; padding-left: 14px; border-left: 1px solid var(--line); min-width: 0; }
+.hero-parts dt { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; }
+.hero-parts dd { margin: 0; font-size: 18px; }
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero-parts { grid-template-columns: 1fr; gap: 10px; }
+  .hero-parts > div { padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--line); grid-template-columns: 1fr auto; }
+  .hero-parts > div > :not(dt, dd) { grid-column: 1 / -1; }
+}
 
 /* Row actions behind "⋯"; the menu stays mounted (hidden) so the dialogs it opens keep rendering */
 .rowmenu { position: relative; display: inline-flex; }

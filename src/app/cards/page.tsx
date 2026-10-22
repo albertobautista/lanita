@@ -6,6 +6,7 @@ import { Dialog } from "@/components/Dialog";
 import { RowMenu } from "@/components/RowMenu";
 import { CardFields } from "@/components/forms";
 import { EmptyState, PageHeader, ProgressBar, StatusPill } from "@/components/ui";
+import { cardBackground, cardInk } from "@/lib/catalogs";
 import { money, money0, shortDate } from "@/lib/format";
 import { getFinance } from "@/lib/page-helpers";
 
@@ -57,7 +58,7 @@ export default async function CardsPage() {
               const st = f.statement(c, f.current);
               return (
                 <article className="cardbox" key={c.id}>
-                  <Link href={`/cards/${c.id}`} className="plastic" style={{ background: c.color, textDecoration: "none" }}>
+                  <Link href={`/cards/${c.id}`} className="plastic" style={{ background: cardBackground(c.color), color: cardInk(c.color), textDecoration: "none" }}>
                     <div className="row between">
                       <span className="bank">{c.bank || c.name}</span>
                       <span className="chip" />
@@ -70,6 +71,17 @@ export default async function CardsPage() {
                       </span>
                     </div>
                   </Link>
+                  <div className="cardpay">
+                    <span className="label">Pagar este mes</span>
+                    <div className="row between">
+                      <b className="num">{money(st.noInterestPayment)}</b>
+                      <StatusPill st={st} />
+                    </div>
+                    <span className="small muted">
+                      Antes del {shortDate(st.dueDate)} · mínimo {money(st.minimumPayment)}
+                    </span>
+                  </div>
+                  <ProgressBar value={c.creditLimit ? used / c.creditLimit : 0} color={c.color} />
                   <div className="stats">
                     <div>
                       <span className="label">Usado</span>
@@ -83,13 +95,6 @@ export default async function CardsPage() {
                       <span className="label">Límite</span>
                       <b>{money0(c.creditLimit)}</b>
                     </div>
-                  </div>
-                  <ProgressBar value={c.creditLimit ? used / c.creditLimit : 0} color={c.color} />
-                  <div className="row between small">
-                    <span>
-                      Este mes: <b className="num">{money(st.noInterestPayment)}</b> antes del {shortDate(st.dueDate)}
-                    </span>
-                    <StatusPill st={st} />
                   </div>
                   <div className="row between">
                     <Link className="btn sm" href={`/cards/${c.id}`}>
