@@ -72,6 +72,24 @@ describe("card statement", () => {
     expect(f.statement(d.cards[0], "2026-04").status).toBe("partial");
     expect(f.statement(d.cards[0], "2026-05").previousBalance).toBe(150_000);
   });
+  it("a payment before the due date is an advance that still shows what is left", () => {
+    const d = empty();
+    d.transactions.push(expense({ amount: 1_000_000 }));
+    d.payments.push(payment({ amount: 300_000, date: "2026-04-10" }));
+    const st = new Finance(d, "2026-04-10").statement(d.cards[0], "2026-04");
+    expect(st.paid).toBeGreaterThanOrEqual(st.minimumPayment);
+    expect(st).toMatchObject({ status: "advance", remaining: 700_000 });
+    // Once the due date passes, only the minimum was covered.
+    expect(new Finance(d, "2026-04-26").statement(d.cards[0], "2026-04").status).toBe("minimum");
+  });
+  it("warns about what is left of an advance close to the due date", () => {
+    const d = empty();
+    d.transactions.push(expense({ amount: 1_000_000 }));
+    d.payments.push(payment({ amount: 300_000, date: "2026-04-10" }));
+    expect(new Finance(d, "2026-04-10").alerts().some((a) => a.text.includes("te faltan"))).toBe(false);
+    const alert = new Finance(d, "2026-04-22").alerts().find((a) => a.text.includes("te faltan"));
+    expect(alert?.text).toContain("antes del 25 (en 3 días)");
+  });
   it("the real bank statement overrides and shows the difference", () => {
     const d = empty();
     d.transactions.push(expense({ amount: 200_000 }));
