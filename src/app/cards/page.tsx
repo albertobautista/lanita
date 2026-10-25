@@ -79,6 +79,8 @@ export default async function CardsPage() {
                     </div>
                     <span className="small muted">
                       Antes del {shortDate(st.dueDate)} · mínimo {money(st.minimumPayment)}
+                      {st.paid > 0 && st.paid >= st.minimumPayment && st.remaining > 0 && " (cubierto)"}
+                      {st.paid > 0 && st.remaining > 0 && ` · pagaste ${money(st.paid)}`}
                     </span>
                   </div>
                   <ProgressBar value={c.creditLimit ? used / c.creditLimit : 0} color={c.color} />

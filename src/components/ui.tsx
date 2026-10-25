@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { Account, Card } from "@/db/schema";
 import { cardBackground, COLOR_NAMES, COLORS } from "@/lib/catalogs";
 import type { CardStatement } from "@/lib/finance";
-import { monthName } from "@/lib/format";
+import { money, monthName } from "@/lib/format";
 import { addMonths } from "@/lib/periods";
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -37,6 +37,7 @@ export function StatusPill({ st }: { st: CardStatement }) {
     switch (st.status) {
       case "paid": return ["good", "Pagado"];
       case "no_charges": return ["neutral", "Sin cargos"];
+      case "advance": return ["warn", `Faltan ${money(st.remaining)}`];
       case "minimum": return ["warn", "Pagaste el mínimo"];
       case "partial": return ["warn", "Pago parcial"];
       case "overdue": return ["bad", `Venció hace ${-st.daysUntilDue} días`];

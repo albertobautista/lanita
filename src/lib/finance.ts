@@ -4,6 +4,7 @@
 import type {
   Account, BankStatement, Budget, Card, CardPayment, Contribution, Goal, Purchase, Recurring, RecurringPrice, Transaction, Transfer,
 } from "@/db/schema";
+import { money } from "./format";
 import { addMonths, dateInPeriod, dayOf, daysBetween, monthsBetween, periodOf, periodRange } from "./periods";
 
 export type Data = {
@@ -135,7 +136,7 @@ export function pendingOccurrences(d: Pick<Data, "recurring" | "prices" | "trans
 
 // ---------- main engine ----------
 
-export type PaymentStatus = "no_charges" | "paid" | "minimum" | "partial" | "overdue" | "due_soon" | "pending";
+export type PaymentStatus = "no_charges" | "paid" | "advance" | "minimum" | "partial" | "overdue" | "due_soon" | "pending";
 
 export type CardStatement = {
   period: string;
@@ -159,6 +160,8 @@ export type CardStatement = {
   minimumPayment: number;
   estimatedInterest: number;
   paid: number;
+  /** What is still owed to avoid interest after the payments made so far. */
+  remaining: number;
   status: PaymentStatus;
   daysUntilDue: number;
 };
@@ -237,6 +240,8 @@ export class Finance {
     let status: PaymentStatus;
     if (noInterestPayment === 0) status = paid > 0 || previousBalance < 0 ? "paid" : "no_charges";
     else if (paid >= noInterestPayment) status = "paid";
+    // A payment before the due date is an advance: the rest can still be paid without interest.
+    else if (paid > 0 && daysUntilDue >= 0) status = "advance";
     else if (paid > 0 && paid >= minimumPayment) status = "minimum";
     else if (paid > 0) status = "partial";
     else if (daysUntilDue < 0) status = "overdue";
@@ -245,7 +250,7 @@ export class Finance {
 
     const st: CardStatement = {
       period, cutoffDate: cutoffDate(c, period), dueDate: due, installments, charges, installmentsTotal, chargesTotal,
-      previousBalance, calculated, bank, difference: bank ? bank.noInterestPayment - calculated : 0, netCharges, noInterestPayment, minimumPayment, estimatedInterest, paid, status, daysUntilDue,
+      previousBalance, calculated, bank, difference: bank ? bank.noInterestPayment - calculated : 0, netCharges, noInterestPayment, minimumPayment, estimatedInterest, paid, remaining: Math.max(0, noInterestPayment - paid), status, daysUntilDue,
     };
     this.statements.set(key, st);
     return st;
@@ -409,7 +414,10 @@ export class Finance {
         const href = `/cards/${c.id}?month=${period}`;
         if (st.status === "overdue") out.push({ level: "critical", text: `${c.name}: el pago de ${shortPeriodLabel(period)} venció hace ${-st.daysUntilDue} días`, href });
         if (st.status === "due_soon") out.push({ level: "warning", text: `${c.name}: paga antes del ${Number(st.dueDate.slice(8))} (en ${st.daysUntilDue} días) para no generar intereses`, href });
-        if (st.status === "minimum" && st.daysUntilDue >= 0) out.push({ level: "warning", text: `${c.name}: cubriste el mínimo; si no pagas el resto generarás intereses`, href });
+        if (st.status === "advance" && st.daysUntilDue <= 5) {
+          const when = st.daysUntilDue === 0 ? "hoy" : `antes del ${Number(st.dueDate.slice(8))} (en ${st.daysUntilDue} días)`;
+          out.push({ level: "warning", text: `${c.name}: te faltan ${money(st.remaining)}; págalos ${when} para no generar intereses`, href });
+        }
       }
       const u = c.creditLimit > 0 ? this.used(c) / c.creditLimit : 0;
       if (u >= 0.9) out.push({ level: "warning", text: `${c.name}: usas el ${Math.round(u * 100)} % de tu límite`, href: "/cards" });

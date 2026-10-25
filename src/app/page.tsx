@@ -42,7 +42,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
   const payments = cards
     .map((c) => {
       const st = f.statement(c, month);
-      return { c, st, owed: Math.max(0, st.noInterestPayment - st.paid) };
+      return { c, st, owed: st.remaining };
     })
     // Still to pay first, then by due date.
     .sort((a, b) => Number(b.owed > 0) - Number(a.owed > 0) || a.st.dueDate.localeCompare(b.st.dueDate));
@@ -113,6 +113,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
                   </Link>
                   <div className="small muted">
                     Pagar antes del {shortDate(st.dueDate)} · mínimo {money(st.minimumPayment)}
+                    {st.paid > 0 && st.paid >= st.minimumPayment && st.remaining > 0 && " (cubierto)"}
                     {st.paid > 0 && ` · pagaste ${money(st.paid)}`}
                   </div>
                 </div>

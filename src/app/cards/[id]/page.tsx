@@ -17,7 +17,7 @@ export default async function CardStatementPage({ params, searchParams }: { para
   const month = monthParam(sp, f.current);
   const st = f.statement(card, month);
   const payments = f.d.payments.filter((p) => p.cardId === card.id && p.period === month);
-  const owed = Math.max(0, st.noInterestPayment - st.paid);
+  const owed = st.remaining;
 
   return (
     <>
@@ -30,7 +30,7 @@ export default async function CardStatementPage({ params, searchParams }: { para
 
       <div className="kpis">
         <Kpi label="Para no generar intereses" value={money(st.noInterestPayment)} note={st.bank ? "Cifra del banco" : "Calculado por Lanita"} />
-        <Kpi label="Pago mínimo" value={money(st.minimumPayment)} />
+        <Kpi label="Pago mínimo" value={money(st.minimumPayment)} note={st.paid > 0 && st.paid >= st.minimumPayment && st.remaining > 0 ? "Ya lo cubriste" : undefined} />
         <Kpi label="Pagado" value={money(st.paid)} tone={st.paid >= st.noInterestPayment && st.paid > 0 ? "pos" : undefined} note={<StatusPill st={st} />} />
         <Kpi label="Disponible" value={money(f.available(card))} note={`de ${money(card.creditLimit)}`} />
       </div>
