@@ -215,8 +215,10 @@ export class Finance {
     if (hit) return hit;
 
     const prev = period > this.firstPeriod(c) ? this.statement(c, addMonths(period, -1)) : null;
-    // What was left unpaid (or in your favor, if negative) from the previous month.
-    const previousBalance = prev ? prev.netCharges - prev.paid : 0;
+    // What was left unpaid (or in your favor, if negative) from the previous month. A statement not yet due can still
+    // be paid in full, so it only carries over once its due date passes; until then each month shows just its own charges.
+    const prevBalance = prev ? prev.netCharges - prev.paid : 0;
+    const previousBalance = prev && (prevBalance < 0 || prev.daysUntilDue < 0) ? prevBalance : 0;
 
     const installments = this.d.purchases
       .filter((p) => p.cardId === c.id)
