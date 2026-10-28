@@ -72,6 +72,17 @@ describe("card statement", () => {
     expect(f.statement(d.cards[0], "2026-04").status).toBe("partial");
     expect(f.statement(d.cards[0], "2026-05").previousBalance).toBe(150_000);
   });
+  it("a statement not yet due does not pile up into the following months", () => {
+    const d = empty();
+    d.transactions.push(expense({ date: "2026-04-10", amount: 200_000 }), expense({ date: "2026-05-10", amount: 300_000 }));
+    const f = new Finance(d, "2026-04-20");
+    // May's statement (due May 25) is still unpaid but not due: June shows only its own charges.
+    expect(f.statement(d.cards[0], "2026-05").noInterestPayment).toBe(200_000);
+    expect(f.statement(d.cards[0], "2026-06").previousBalance).toBe(0);
+    expect(f.statement(d.cards[0], "2026-06").noInterestPayment).toBe(300_000);
+    // Once May's due date passes unpaid, it carries over.
+    expect(new Finance(d, "2026-05-26").statement(d.cards[0], "2026-06").noInterestPayment).toBe(500_000);
+  });
   it("a payment before the due date is an advance that still shows what is left", () => {
     const d = empty();
     d.transactions.push(expense({ amount: 1_000_000 }));
