@@ -2,7 +2,7 @@
 // Amounts in cents; period "YYYY-MM" = month in which the statement payment is due.
 
 import type {
-  Account, BankStatement, Budget, Card, CardPayment, Contribution, Goal, Purchase, Recurring, RecurringPrice, StatementDate, Transaction,
+  Account, BankStatement, Budget, Card, CardPayment, Contribution, DueDate, Goal, Purchase, Recurring, RecurringPrice, Transaction,
   Transfer,
 } from "@/db/schema";
 import { money } from "./format";
@@ -17,7 +17,7 @@ export type Data = {
   transactions: Transaction[];
   payments: CardPayment[];
   bankStatements: BankStatement[];
-  statementDates: StatementDate[];
+  dueDates: DueDate[];
   transfers: Transfer[];
   budgets: Budget[];
   goals: Goal[];
@@ -26,28 +26,22 @@ export type Data = {
 
 export const VAT = 0.16;
 
-/** The card's usual cutoff and due days, plus the statements whose real dates moved. */
-export type CardCycle = Pick<Card, "cutoffDay" | "dueDay"> & { dates?: Pick<StatementDate, "period" | "cutoffDate" | "dueDate">[] };
-
-const movedDates = (c: CardCycle, period: string) => c.dates?.find((x) => x.period === period);
+/** The card's cutoff and usual due days, plus the statements whose due date the bank moved. */
+export type CardCycle = Pick<Card, "cutoffDay" | "dueDay"> & { dueDates?: Pick<DueDate, "period" | "dueDate">[] };
 
 /** Period in which a purchase made on `date` is paid: the next cutoff and then its due date. */
 export function paymentPeriod(c: CardCycle, date: string) {
   const closing = dayOf(date) <= c.cutoffDay ? periodOf(date) : addMonths(periodOf(date), 1);
-  const period = c.dueDay > c.cutoffDay ? closing : addMonths(closing, 1);
-  // A cutoff moved a few days can pull the purchase into the next statement or keep it in the previous one.
-  if (date > cutoffDate(c, period)) return addMonths(period, 1);
-  if (date <= cutoffDate(c, addMonths(period, -1))) return addMonths(period, -1);
-  return period;
+  return c.dueDay > c.cutoffDay ? closing : addMonths(closing, 1);
 }
 
 export function dueDate(c: CardCycle, period: string) {
-  return movedDates(c, period)?.dueDate ?? dateInPeriod(period, c.dueDay);
+  return c.dueDates?.find((x) => x.period === period)?.dueDate ?? dateInPeriod(period, c.dueDay);
 }
 
 /** Cutoff date of the statement due in `period`. */
 export function cutoffDate(c: CardCycle, period: string) {
-  return movedDates(c, period)?.cutoffDate ?? dateInPeriod(c.dueDay > c.cutoffDay ? period : addMonths(period, -1), c.cutoffDay);
+  return dateInPeriod(c.dueDay > c.cutoffDay ? period : addMonths(period, -1), c.cutoffDay);
 }
 
 // ---------- installment purchases ----------
@@ -194,11 +188,11 @@ export class Finance {
     return this.d.accounts.find((a) => a.id === id);
   }
 
-  /** The card's billing cycle, with the statements whose dates moved. */
+  /** The card's billing cycle, with the statements whose due date moved. */
   cycle(c: Card): CardCycle {
     let x = this.cycles.get(c.id);
     if (!x) {
-      x = { cutoffDay: c.cutoffDay, dueDay: c.dueDay, dates: this.d.statementDates.filter((s) => s.cardId === c.id) };
+      x = { cutoffDay: c.cutoffDay, dueDay: c.dueDay, dueDates: this.d.dueDates.filter((s) => s.cardId === c.id) };
       this.cycles.set(c.id, x);
     }
     return x;

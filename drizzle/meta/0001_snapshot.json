@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7e80d13f-4f16-4eb2-9160-3e1cf80961bb",
+  "id": "4186e136-5708-4d31-b4a6-add3fd143c02",
   "prevId": "56e39e3a-a450-4ae5-85dc-4ddc1b6ea056",
   "tables": {
     "accounts": {
@@ -497,6 +497,67 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "due_dates": {
+      "name": "due_dates",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "card_id": {
+          "name": "card_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "period": {
+          "name": "period",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "due_dates_card_period": {
+          "name": "due_dates_card_period",
+          "columns": [
+            "card_id",
+            "period"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "due_dates_card_id_cards_id_fk": {
+          "name": "due_dates_card_id_cards_id_fk",
+          "tableFrom": "due_dates",
+          "tableTo": "cards",
+          "columnsFrom": [
+            "card_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "goals": {
       "name": "goals",
       "columns": {
@@ -874,74 +935,6 @@
           "tableTo": "recurring",
           "columnsFrom": [
             "recurring_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "statement_dates": {
-      "name": "statement_dates",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "card_id": {
-          "name": "card_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "period": {
-          "name": "period",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "cutoff_date": {
-          "name": "cutoff_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "due_date": {
-          "name": "due_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "statement_dates_card_period": {
-          "name": "statement_dates_card_period",
-          "columns": [
-            "card_id",
-            "period"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "statement_dates_card_id_cards_id_fk": {
-          "name": "statement_dates_card_id_cards_id_fk",
-          "tableFrom": "statement_dates",
-          "tableTo": "cards",
-          "columnsFrom": [
-            "card_id"
           ],
           "columnsTo": [
             "id"

@@ -83,7 +83,7 @@ export async function deleteCard(id: string): Promise<Result> {
     .from(sql`(select 1)`);
   if (use.n > 0) return { ok: false, error: "Esta tarjeta tiene compras, pagos o cargos registrados. Bórralos primero." };
   await db.delete(schema.bankStatements).where(eq(schema.bankStatements.cardId, id));
-  await db.delete(schema.statementDates).where(eq(schema.statementDates.cardId, id));
+  await db.delete(schema.dueDates).where(eq(schema.dueDates.cardId, id));
   await db.delete(schema.cards).where(eq(schema.cards.id, id));
   return done("Tarjeta borrada");
 }
@@ -298,39 +298,36 @@ export async function deleteBankStatement(cardId: string, p: string): Promise<Re
   return done("Se volvió a usar el cálculo de la app");
 }
 
-const statementDatesSchema = z.object({ cardId: text.min(1), period, cutoffDate: date, dueDate: date });
+const dueDateSchema = z.object({ cardId: text.min(1), period, dueDate: date });
 
-/** Saves the real cutoff and due dates of one statement, when the bank moved them from the card's usual days. */
-export async function saveStatementDates(_: Result | null, fd: FormData): Promise<Result> {
-  const r = parse(statementDatesSchema, fd);
+/** Saves the real due date of one statement, when the bank moved it from the card's usual day. */
+export async function saveDueDate(_: Result | null, fd: FormData): Promise<Result> {
+  const r = parse(dueDateSchema, fd);
   if ("error" in r) return { ok: false, error: r.error };
   const x = r.data;
-  if (x.dueDate <= x.cutoffDate) return { ok: false, error: "La fecha límite de pago debe ser después del corte" };
   const [c] = await db.select().from(schema.cards).where(eq(schema.cards.id, x.cardId));
   if (!c) return { ok: false, error: "No encontré la tarjeta" };
-  // The card's usual days for this month. A move of more than a few days probably means the wrong month.
-  const usualCutoff = cutoffDate(c, x.period);
-  const usualDue = dueDate(c, x.period);
-  if (Math.abs(daysBetween(usualCutoff, x.cutoffDate)) > 10 || Math.abs(daysBetween(usualDue, x.dueDate)) > 10) {
-    return { ok: false, error: "Las fechas están muy lejos de las de siempre; revisa que sean de este estado de cuenta" };
-  }
-  const where = and(eq(schema.statementDates.cardId, x.cardId), eq(schema.statementDates.period, x.period));
+  if (x.dueDate <= cutoffDate(c, x.period)) return { ok: false, error: "La fecha límite de pago debe ser después del corte" };
+  // The bank only moves it a few days; further than that it is probably the wrong month.
+  const usual = dueDate(c, x.period);
+  if (Math.abs(daysBetween(usual, x.dueDate)) > 10) return { ok: false, error: "La fecha está muy lejos de la de siempre; revisa que sea de este estado de cuenta" };
+  const where = and(eq(schema.dueDates.cardId, x.cardId), eq(schema.dueDates.period, x.period));
   return attempt(async () => {
-    if (x.cutoffDate === usualCutoff && x.dueDate === usualDue) {
-      await db.delete(schema.statementDates).where(where);
-      return done("Fechas guardadas");
+    if (x.dueDate === usual) {
+      await db.delete(schema.dueDates).where(where);
+      return done("Fecha guardada");
     }
     await db
-      .insert(schema.statementDates)
+      .insert(schema.dueDates)
       .values(x)
-      .onConflictDoUpdate({ target: [schema.statementDates.cardId, schema.statementDates.period], set: { cutoffDate: x.cutoffDate, dueDate: x.dueDate } });
-    return done("Fechas guardadas: este mes se usan las del banco");
+      .onConflictDoUpdate({ target: [schema.dueDates.cardId, schema.dueDates.period], set: { dueDate: x.dueDate } });
+    return done("Fecha guardada: este mes se usa la del banco");
   });
 }
 
-export async function deleteStatementDates(cardId: string, p: string): Promise<Result> {
-  await db.delete(schema.statementDates).where(and(eq(schema.statementDates.cardId, cardId), eq(schema.statementDates.period, p)));
-  return done("Se volvió a usar el día de corte y de pago de siempre");
+export async function deleteDueDate(cardId: string, p: string): Promise<Result> {
+  await db.delete(schema.dueDates).where(and(eq(schema.dueDates.cardId, cardId), eq(schema.dueDates.period, p)));
+  return done("Se volvió a usar el día de pago de siempre");
 }
 
 /** Records the difference against the bank as an "unidentified" expense within that statement. */

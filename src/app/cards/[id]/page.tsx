@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deleteBankStatement, deletePayment, recordDifference, recordPayment, saveBankStatement, settleOverdue } from "@/app/actions";
+import {
+  deleteBankStatement, deleteDueDate, deletePayment, recordDifference, recordPayment, saveBankStatement, saveDueDate, settleOverdue,
+} from "@/app/actions";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
 import { Dialog } from "@/components/Dialog";
@@ -18,15 +20,34 @@ export default async function CardStatementPage({ params, searchParams }: { para
   const st = f.statement(card, month);
   const payments = f.d.payments.filter((p) => p.cardId === card.id && p.period === month);
   const owed = st.remaining;
+  const movedDue = f.d.dueDates.some((x) => x.cardId === card.id && x.period === month);
 
   return (
     <>
       <PageHeader title={card.name}>
         <MonthPicker path={`/cards/${card.id}`} month={month} />
       </PageHeader>
-      <p className="muted">
-        <Link href="/cards">← Tarjetas</Link> · Corte el {longDate(st.cutoffDate)} · Pagar antes del {longDate(st.dueDate)}
-      </p>
+      <div className="row">
+        <p className="muted">
+          <Link href="/cards">← Tarjetas</Link> · Corte el {longDate(st.cutoffDate)} · Pagar antes del {longDate(st.dueDate)}
+          {movedDue && " (fecha del banco)"}
+        </p>
+        <Dialog trigger="Cambiar fecha de pago" title={`Fecha límite de ${shortMonthYear(month)}`} className="btn ghost sm">
+          <p className="muted small">Si el banco movió la fecha límite este mes, captura la de tu estado de cuenta. Solo cambia este mes.</p>
+          <ActionForm action={saveDueDate} resetOnSuccess={false}>
+            <input type="hidden" name="cardId" value={card.id} />
+            <input type="hidden" name="period" value={month} />
+            <Field label="Fecha límite de pago">
+              <input name="dueDate" type="date" defaultValue={st.dueDate} required />
+            </Field>
+          </ActionForm>
+          {movedDue && (
+            <ActionButton action={deleteDueDate.bind(null, card.id, month)} className="btn ghost sm">
+              Usar el día de siempre ({card.dueDay})
+            </ActionButton>
+          )}
+        </Dialog>
+      </div>
 
       <div className="kpis">
         <Kpi label="Para no generar intereses" value={money(st.noInterestPayment)} note={st.bank ? "Cifra del banco" : "Calculado por Lanita"} />
