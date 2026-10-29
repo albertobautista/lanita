@@ -140,6 +140,19 @@ export const bankStatements = sqliteTable(
   (t) => [uniqueIndex("bank_statements_card_period").on(t.cardId, t.period)],
 );
 
+// Banks move the due date a day or two some months (weekends, holidays). When present, it overrides the card's usual
+// due day for that statement. The cutoff day never moves.
+export const dueDates = sqliteTable(
+  "due_dates",
+  {
+    id: id(),
+    cardId: text("card_id").notNull().references(() => cards.id, { onDelete: "cascade" }),
+    period: text("period").notNull(),
+    dueDate: text("due_date").notNull(),
+  },
+  (t) => [uniqueIndex("due_dates_card_period").on(t.cardId, t.period)],
+);
+
 export const transfers = sqliteTable("transfers", {
   id: id(),
   fromAccountId: text("from_account_id").notNull().references(() => accounts.id),
@@ -186,6 +199,7 @@ export type RecurringPrice = typeof recurringPrices.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
 export type CardPayment = typeof cardPayments.$inferSelect;
 export type BankStatement = typeof bankStatements.$inferSelect;
+export type DueDate = typeof dueDates.$inferSelect;
 export type Transfer = typeof transfers.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
 export type Goal = typeof goals.$inferSelect;

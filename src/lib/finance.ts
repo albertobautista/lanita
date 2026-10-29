@@ -2,7 +2,8 @@
 // Amounts in cents; period "YYYY-MM" = month in which the statement payment is due.
 
 import type {
-  Account, BankStatement, Budget, Card, CardPayment, Contribution, Goal, Purchase, Recurring, RecurringPrice, Transaction, Transfer,
+  Account, BankStatement, Budget, Card, CardPayment, Contribution, DueDate, Goal, Purchase, Recurring, RecurringPrice, Transaction,
+  Transfer,
 } from "@/db/schema";
 import { money } from "./format";
 import { addMonths, dateInPeriod, dayOf, daysBetween, monthsBetween, periodOf, periodRange } from "./periods";
@@ -16,6 +17,7 @@ export type Data = {
   transactions: Transaction[];
   payments: CardPayment[];
   bankStatements: BankStatement[];
+  dueDates: DueDate[];
   transfers: Transfer[];
   budgets: Budget[];
   goals: Goal[];
@@ -24,7 +26,8 @@ export type Data = {
 
 export const VAT = 0.16;
 
-type CardCycle = Pick<Card, "cutoffDay" | "dueDay">;
+/** The card's cutoff and usual due days, plus the statements whose due date the bank moved. */
+export type CardCycle = Pick<Card, "cutoffDay" | "dueDay"> & { dueDates?: Pick<DueDate, "period" | "dueDate">[] };
 
 /** Period in which a purchase made on `date` is paid: the next cutoff and then its due date. */
 export function paymentPeriod(c: CardCycle, date: string) {
@@ -33,7 +36,7 @@ export function paymentPeriod(c: CardCycle, date: string) {
 }
 
 export function dueDate(c: CardCycle, period: string) {
-  return dateInPeriod(period, c.dueDay);
+  return c.dueDates?.find((x) => x.period === period)?.dueDate ?? dateInPeriod(period, c.dueDay);
 }
 
 /** Cutoff date of the statement due in `period`. */
@@ -171,6 +174,7 @@ export class Finance {
   readonly current: string;
   private statements = new Map<string, CardStatement>();
   private schedules = new Map<string, ScheduledPayment[]>();
+  private cycles = new Map<string, CardCycle>();
 
   constructor(readonly d: Data, today: string) {
     this.today = today;
@@ -184,11 +188,21 @@ export class Finance {
     return this.d.accounts.find((a) => a.id === id);
   }
 
+  /** The card's billing cycle, with the statements whose due date moved. */
+  cycle(c: Card): CardCycle {
+    let x = this.cycles.get(c.id);
+    if (!x) {
+      x = { cutoffDay: c.cutoffDay, dueDay: c.dueDay, dueDates: this.d.dueDates.filter((s) => s.cardId === c.id) };
+      this.cycles.set(c.id, x);
+    }
+    return x;
+  }
+
   schedule(p: Purchase) {
     let s = this.schedules.get(p.id);
     if (!s) {
       const c = this.card(p.cardId);
-      s = c ? purchaseSchedule(p, c) : [];
+      s = c ? purchaseSchedule(p, this.cycle(c)) : [];
       this.schedules.set(p.id, s);
     }
     return s;
@@ -197,7 +211,7 @@ export class Finance {
   private firstPeriod(c: Card) {
     let first = this.current;
     for (const p of this.d.purchases) if (p.cardId === c.id) { const s = this.schedule(p)[0]?.period; if (s && s < first) first = s; }
-    for (const t of this.d.transactions) if (t.cardId === c.id && t.type === "expense") { const s = paymentPeriod(c, t.date); if (s < first) first = s; }
+    for (const t of this.d.transactions) if (t.cardId === c.id && t.type === "expense") { const s = paymentPeriod(this.cycle(c), t.date); if (s < first) first = s; }
     for (const p of this.d.payments) if (p.cardId === c.id && p.period < first) first = p.period;
     return first;
   }
@@ -223,7 +237,7 @@ export class Finance {
     const installments = this.d.purchases
       .filter((p) => p.cardId === c.id)
       .flatMap((purchase) => this.schedule(purchase).filter((x) => x.period === period).map((payment) => ({ purchase, payment })));
-    const charges = this.d.transactions.filter((t) => t.cardId === c.id && t.type === "expense" && paymentPeriod(c, t.date) === period);
+    const charges = this.d.transactions.filter((t) => t.cardId === c.id && t.type === "expense" && paymentPeriod(this.cycle(c), t.date) === period);
     const installmentsTotal = installments.reduce((s, x) => s + x.payment.amount, 0);
     const chargesTotal = charges.reduce((s, t) => s + t.amount, 0);
     const calculatedNet = installmentsTotal + chargesTotal + previousBalance;
@@ -236,7 +250,7 @@ export class Finance {
     const minimumPayment = bank?.minimumPayment ?? Math.min(noInterestPayment, installmentsTotal + fixed);
     const estimatedInterest = previousBalance > 0 ? Math.round((previousBalance * c.annualRate * (1 + VAT)) / 10000 / 12) : 0;
     const paid = this.d.payments.filter((p) => p.cardId === c.id && p.period === period).reduce((s, p) => s + p.amount, 0);
-    const due = dueDate(c, period);
+    const due = dueDate(this.cycle(c), period);
     const daysUntilDue = daysBetween(this.today, due);
 
     let status: PaymentStatus;
@@ -251,7 +265,7 @@ export class Finance {
     else status = "pending";
 
     const st: CardStatement = {
-      period, cutoffDate: cutoffDate(c, period), dueDate: due, installments, charges, installmentsTotal, chargesTotal,
+      period, cutoffDate: cutoffDate(this.cycle(c), period), dueDate: due, installments, charges, installmentsTotal, chargesTotal,
       previousBalance, calculated, bank, difference: bank ? bank.noInterestPayment - calculated : 0, netCharges, noInterestPayment, minimumPayment, estimatedInterest, paid, remaining: Math.max(0, noInterestPayment - paid), status, daysUntilDue,
     };
     this.statements.set(key, st);
@@ -282,11 +296,11 @@ export class Finance {
     // statement was recorded. A credit balance carried from earlier months does not pay future installments ahead.
     const covered = schedule.filter((x) => {
       if (!c) return false;
-      if (dueDate(c, x.period) < this.today) return true;
+      if (dueDate(this.cycle(c), x.period) < this.today) return true;
       const st = this.statement(c, x.period);
       return st.paid > 0 && st.paid >= st.noInterestPayment;
     });
-    const plan = c ? planSummary(p, c) : null;
+    const plan = c ? planSummary(p, this.cycle(c)) : null;
     const remaining = schedule.filter((x) => !covered.includes(x)).reduce((s, x) => s + x.amount, 0);
     return {
       card: c,
@@ -299,7 +313,7 @@ export class Finance {
       months: p.settledPeriod ? schedule.length : p.months,
       paidCount: covered.length,
       // Banks number installments by statement: once a cutoff passes, its installment shows as "n of N" before it is paid.
-      billedCount: c ? schedule.filter((x) => cutoffDate(c, x.period) <= this.today).length : covered.length,
+      billedCount: c ? schedule.filter((x) => cutoffDate(this.cycle(c), x.period) <= this.today).length : covered.length,
       remaining,
       active: covered.length < schedule.length,
       settled: !!p.settledPeriod,
@@ -316,7 +330,7 @@ export class Finance {
   /** Month a transaction counts in: card expenses count when their statement is due, everything else on its date. */
   countingPeriod(t: Pick<Transaction, "type" | "date" | "cardId">) {
     const c = t.type === "expense" ? this.card(t.cardId) : undefined;
-    return c ? paymentPeriod(c, t.date) : periodOf(t.date);
+    return c ? paymentPeriod(this.cycle(c), t.date) : periodOf(t.date);
   }
 
   /** Recurring charges not yet recorded as transactions that count in `period` (projection). */
@@ -392,8 +406,8 @@ export class Finance {
   bestCardToday() {
     return this.d.cards
       .map((c) => {
-        const period = paymentPeriod(c, this.today);
-        const due = dueDate(c, period);
+        const period = paymentPeriod(this.cycle(c), this.today);
+        const due = dueDate(this.cycle(c), period);
         return { card: c, period, dueDate: due, days: daysBetween(this.today, due), available: this.available(c) };
       })
       .sort((a, b) => Number(b.available > 0) - Number(a.available > 0) || b.days - a.days);
@@ -449,7 +463,7 @@ export class Finance {
   simulate(purchase: PurchasePlan & { cardId: string }, months = 12) {
     const c = this.card(purchase.cardId);
     if (!c) return null;
-    const plan = planSummary(purchase, c);
+    const plan = planSummary(purchase, this.cycle(c));
     const rows = periodRange(this.current, months).map((period) => {
       // Future months assume each statement gets paid in full, so unpaid balances are not carried forever.
       const before = this.d.cards.reduce((s, x) => {

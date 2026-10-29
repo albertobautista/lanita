@@ -18,7 +18,7 @@ const expense = (x: Partial<Transaction> = {}): Transaction => ({
 });
 const payment = (x: Partial<CardPayment>): CardPayment => ({ id: crypto.randomUUID(), cardId: "t1", period: "2026-04", amount: 0, date: "2026-04-20", accountId: null, ...base, ...x });
 const empty = (): Data => ({
-  accounts: [], cards: [card()], purchases: [], recurring: [], prices: [], transactions: [], payments: [], bankStatements: [],
+  accounts: [], cards: [card()], purchases: [], recurring: [], prices: [], transactions: [], payments: [], bankStatements: [], dueDates: [],
   transfers: [], budgets: [], goals: [], contributions: [],
 });
 
@@ -30,6 +30,25 @@ describe("paymentPeriod", () => {
   it("if the due day is before the cutoff, it is paid the following month", () => {
     expect(paymentPeriod({ cutoffDay: 20, dueDay: 10 }, "2026-03-15")).toBe("2026-04");
     expect(paymentPeriod({ cutoffDay: 20, dueDay: 10 }, "2026-12-21")).toBe("2027-02");
+  });
+});
+
+describe("due date moved by the bank", () => {
+  it("the statement, its status and the alerts use the moved date; other months keep the usual day", () => {
+    const d = empty();
+    d.dueDates.push({ id: "f1", cardId: "t1", period: "2026-03", dueDate: "2026-03-27" });
+    d.transactions.push(expense({ date: "2026-03-05", amount: 50_000 }));
+    const f = new Finance(d, "2026-03-26");
+    expect(f.statement(d.cards[0], "2026-03")).toMatchObject({ cutoffDate: "2026-03-05", dueDate: "2026-03-27", chargesTotal: 50_000, status: "due_soon", daysUntilDue: 1 });
+    expect(f.statement(d.cards[0], "2026-04")).toMatchObject({ cutoffDate: "2026-04-05", dueDate: "2026-04-25" });
+    expect(f.alerts().map((a) => a.text)).toContain("Oro: paga antes del 27 (en 1 días) para no generar intereses");
+  });
+  it("a statement is not overdue until its moved due date passes", () => {
+    const d = empty();
+    d.dueDates.push({ id: "f1", cardId: "t1", period: "2026-03", dueDate: "2026-03-27" });
+    d.transactions.push(expense({ date: "2026-03-05", amount: 50_000 }));
+    expect(new Finance(d, "2026-03-26").statement(d.cards[0], "2026-03").status).toBe("due_soon");
+    expect(new Finance(d, "2026-03-28").statement(d.cards[0], "2026-03").status).toBe("overdue");
   });
 });
 

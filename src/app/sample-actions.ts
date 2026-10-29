@@ -136,6 +136,8 @@ export async function deleteSampleData(): Promise<Result> {
   const recs = await db.select({ id: schema.recurring.id }).from(schema.recurring).where(eq(schema.recurring.isSample, true));
   if (recs.length) await db.delete(schema.recurringPrices).where(inArray(schema.recurringPrices.recurringId, recs.map((r) => r.id)));
   await db.delete(schema.recurring).where(eq(schema.recurring.isSample, true));
+  const sampleCards = await db.select({ id: schema.cards.id }).from(schema.cards).where(eq(schema.cards.isSample, true));
+  if (sampleCards.length) await db.delete(schema.dueDates).where(inArray(schema.dueDates.cardId, sampleCards.map((c) => c.id)));
   await db.delete(schema.cards).where(eq(schema.cards.isSample, true));
   await db.delete(schema.accounts).where(eq(schema.accounts.isSample, true));
   revalidatePath("/", "layout");
