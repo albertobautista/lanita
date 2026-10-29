@@ -5,7 +5,7 @@ import type {
   Account, BankStatement, Budget, Card, CardPayment, Contribution, DueDate, Goal, Purchase, Recurring, RecurringPrice, Transaction,
   Transfer,
 } from "@/db/schema";
-import { money } from "./format";
+import { money, shortDate } from "./format";
 import { addMonths, dateInPeriod, dayOf, daysBetween, monthsBetween, periodOf, periodRange } from "./periods";
 
 export type Data = {
@@ -167,6 +167,19 @@ export type CardStatement = {
   remaining: number;
   status: PaymentStatus;
   daysUntilDue: number;
+};
+
+export type CalendarEvent = {
+  date: string;
+  kind: "cutoff" | "due" | "installment_end" | "bill" | "subscription" | "income" | "goal";
+  title: string;
+  detail?: string;
+  amount?: number;
+  /** The card statement behind a card payment, for its status. */
+  statement?: CardStatement;
+  href: string;
+  /** Card or goal color. */
+  color?: string;
 };
 
 export class Finance {
@@ -419,6 +432,50 @@ export class Finance {
     if (fixed > 0) return fixed;
     const months = [1, 2, 3].map((i) => this.monthSummary(addMonths(this.current, -i)).income);
     return Math.round(months.reduce((a, b) => a + b, 0) / 3);
+  }
+
+  /** Every dated event that falls in the calendar month `month`, sorted by date. Titles are shown in the app, so they stay in Spanish. */
+  calendar(month: string): CalendarEvent[] {
+    const out: CalendarEvent[] = [];
+    const inMonth = (date: string) => periodOf(date) === month;
+    // A statement's cutoff can fall in the month before its period, and a moved due date can cross into a neighbor month.
+    const periods = [addMonths(month, -1), month, addMonths(month, 1), addMonths(month, 2)];
+    for (const c of this.d.cards) {
+      for (const period of periods) {
+        const st = this.statement(c, period);
+        const href = `/cards/${c.id}?month=${period}`;
+        if (inMonth(st.cutoffDate)) {
+          out.push({ date: st.cutoffDate, kind: "cutoff", title: `Corte de ${c.name}`, detail: `Cierra el estado de cuenta que pagas el ${shortDate(st.dueDate)}`, href, color: c.color });
+        }
+        if (inMonth(st.dueDate)) {
+          const parts = [st.installments.length ? `${st.installments.length} ${st.installments.length === 1 ? "mensualidad" : "mensualidades"}` : "", st.charges.length ? `${st.charges.length} ${st.charges.length === 1 ? "compra" : "compras"} de contado` : ""].filter(Boolean);
+          out.push({
+            date: st.dueDate, kind: "due", title: `Pago de ${c.name}`, amount: st.noInterestPayment, statement: st, href, color: c.color,
+            detail: `${parts.length ? `Incluye ${parts.join(" y ")}` : "Sin cargos"}${this.cycle(c).dueDates?.some((x) => x.period === period) ? " · el banco movió la fecha" : ""}`,
+          });
+        }
+        // The last installment of each purchase, on the due date of the statement that carries it.
+        for (const { purchase, payment } of st.installments) {
+          if (!inMonth(st.dueDate) || this.schedule(purchase).at(-1) !== payment) continue;
+          out.push({ date: st.dueDate, kind: "installment_end", title: `Terminas de pagar ${purchase.description}`, detail: payment.settlement ? `Liquidación con ${c.name}` : `Última mensualidad con ${c.name}`, amount: payment.amount, href: "/installments", color: c.color });
+        }
+      }
+    }
+    for (const r of this.d.recurring) {
+      const amount = chargeInPeriod(r, this.d.prices, month);
+      if (amount <= 0) continue;
+      const via = r.cardId ? this.card(r.cardId)?.name : this.account(r.accountId)?.name;
+      const kind = r.type === "income" ? "income" : r.isSubscription ? "subscription" : "bill";
+      const verb = r.type === "income" ? "Llega a" : r.cardId ? "Se carga a" : "Se paga con";
+      out.push({ date: dateInPeriod(month, r.day), kind, title: r.description, detail: via ? `${verb} ${via}` : undefined, amount, href: "/subscriptions" });
+    }
+    for (const g of this.d.goals) {
+      if (!g.targetDate || !inMonth(g.targetDate)) continue;
+      const s = this.goalStatus(g);
+      out.push({ date: g.targetDate, kind: "goal", title: `Meta: ${g.name}`, detail: s.remaining > 0 ? `Te faltan ${money(s.remaining)}` : "Ya la completaste", amount: g.target, href: "/goals", color: g.color });
+    }
+    const order: Record<CalendarEvent["kind"], number> = { due: 0, cutoff: 1, installment_end: 2, bill: 3, subscription: 4, income: 5, goal: 6 };
+    return out.sort((a, b) => a.date.localeCompare(b.date) || order[a.kind] - order[b.kind]);
   }
 
   // Alert texts are shown in the app, so they stay in Spanish.

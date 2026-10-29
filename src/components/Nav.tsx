@@ -22,6 +22,7 @@ const PRIMARY: Section[] = [
 
 /** Monthly or occasional: behind "Más" on phones. */
 const SECONDARY: Section[] = [
+  { href: "/calendar", label: "Calendario" },
   { href: "/subscriptions", label: "Suscripciones" },
   { href: "/accounts", label: "Cuentas" },
   { href: "/budgets", label: "Presupuestos" },
