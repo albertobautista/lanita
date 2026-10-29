@@ -6,9 +6,9 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { COLORS, UNIDENTIFIED_CATEGORY } from "@/lib/catalogs";
 import { loadFinance } from "@/lib/data";
-import { cutoffDate, overduePayments } from "@/lib/finance";
+import { cutoffDate, dueDate, overduePayments } from "@/lib/finance";
 import { toCents } from "@/lib/format";
-import { addMonths, isPeriod, periodOf, todayISO } from "@/lib/periods";
+import { addMonths, daysBetween, isPeriod, periodOf, todayISO } from "@/lib/periods";
 
 export type Result = { ok: boolean; message?: string; error?: string };
 
@@ -82,6 +82,8 @@ export async function deleteCard(id: string): Promise<Result> {
     .select({ n: sql<number>`(select count(*) from purchases where card_id = ${id}) + (select count(*) from transactions where card_id = ${id}) + (select count(*) from card_payments where card_id = ${id}) + (select count(*) from recurring where card_id = ${id})` })
     .from(sql`(select 1)`);
   if (use.n > 0) return { ok: false, error: "Esta tarjeta tiene compras, pagos o cargos registrados. Bórralos primero." };
+  await db.delete(schema.bankStatements).where(eq(schema.bankStatements.cardId, id));
+  await db.delete(schema.statementDates).where(eq(schema.statementDates.cardId, id));
   await db.delete(schema.cards).where(eq(schema.cards.id, id));
   return done("Tarjeta borrada");
 }
@@ -296,6 +298,41 @@ export async function deleteBankStatement(cardId: string, p: string): Promise<Re
   return done("Se volvió a usar el cálculo de la app");
 }
 
+const statementDatesSchema = z.object({ cardId: text.min(1), period, cutoffDate: date, dueDate: date });
+
+/** Saves the real cutoff and due dates of one statement, when the bank moved them from the card's usual days. */
+export async function saveStatementDates(_: Result | null, fd: FormData): Promise<Result> {
+  const r = parse(statementDatesSchema, fd);
+  if ("error" in r) return { ok: false, error: r.error };
+  const x = r.data;
+  if (x.dueDate <= x.cutoffDate) return { ok: false, error: "La fecha límite de pago debe ser después del corte" };
+  const [c] = await db.select().from(schema.cards).where(eq(schema.cards.id, x.cardId));
+  if (!c) return { ok: false, error: "No encontré la tarjeta" };
+  // The card's usual days for this month. A move of more than a few days probably means the wrong month.
+  const usualCutoff = cutoffDate(c, x.period);
+  const usualDue = dueDate(c, x.period);
+  if (Math.abs(daysBetween(usualCutoff, x.cutoffDate)) > 10 || Math.abs(daysBetween(usualDue, x.dueDate)) > 10) {
+    return { ok: false, error: "Las fechas están muy lejos de las de siempre; revisa que sean de este estado de cuenta" };
+  }
+  const where = and(eq(schema.statementDates.cardId, x.cardId), eq(schema.statementDates.period, x.period));
+  return attempt(async () => {
+    if (x.cutoffDate === usualCutoff && x.dueDate === usualDue) {
+      await db.delete(schema.statementDates).where(where);
+      return done("Fechas guardadas");
+    }
+    await db
+      .insert(schema.statementDates)
+      .values(x)
+      .onConflictDoUpdate({ target: [schema.statementDates.cardId, schema.statementDates.period], set: { cutoffDate: x.cutoffDate, dueDate: x.dueDate } });
+    return done("Fechas guardadas: este mes se usan las del banco");
+  });
+}
+
+export async function deleteStatementDates(cardId: string, p: string): Promise<Result> {
+  await db.delete(schema.statementDates).where(and(eq(schema.statementDates.cardId, cardId), eq(schema.statementDates.period, p)));
+  return done("Se volvió a usar el día de corte y de pago de siempre");
+}
+
 /** Records the difference against the bank as an "unidentified" expense within that statement. */
 export async function recordDifference(cardId: string, p: string): Promise<Result> {
   const f = await loadFinance();
@@ -305,7 +342,7 @@ export async function recordDifference(cardId: string, p: string): Promise<Resul
   if (st.difference <= 0) return { ok: false, error: "No hay gastos faltantes que registrar en este corte" };
   await db.insert(schema.transactions).values({
     type: "expense",
-    date: cutoffDate(c, p),
+    date: st.cutoffDate,
     amount: st.difference,
     category: UNIDENTIFIED_CATEGORY,
     description: "Diferencia con el estado de cuenta",

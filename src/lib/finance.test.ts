@@ -18,7 +18,7 @@ const expense = (x: Partial<Transaction> = {}): Transaction => ({
 });
 const payment = (x: Partial<CardPayment>): CardPayment => ({ id: crypto.randomUUID(), cardId: "t1", period: "2026-04", amount: 0, date: "2026-04-20", accountId: null, ...base, ...x });
 const empty = (): Data => ({
-  accounts: [], cards: [card()], purchases: [], recurring: [], prices: [], transactions: [], payments: [], bankStatements: [],
+  accounts: [], cards: [card()], purchases: [], recurring: [], prices: [], transactions: [], payments: [], bankStatements: [], statementDates: [],
   transfers: [], budgets: [], goals: [], contributions: [],
 });
 

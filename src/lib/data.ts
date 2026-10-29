@@ -4,7 +4,8 @@ import { Finance, pendingOccurrences, type Data } from "./finance";
 import { todayISO } from "./periods";
 
 async function readAll(): Promise<Data> {
-  const [accounts, cards, purchases, recurring, prices, transactions, payments, bankStatements, transfers, budgets, goals, contributions] =
+  const [accounts, cards, purchases, recurring, prices, transactions, payments, bankStatements, statementDates, transfers, budgets, goals, contributions] =
+   
     await Promise.all([
       db.select().from(schema.accounts).orderBy(schema.accounts.createdAt),
       db.select().from(schema.cards).orderBy(schema.cards.createdAt),
@@ -14,12 +15,13 @@ async function readAll(): Promise<Data> {
       db.select().from(schema.transactions),
       db.select().from(schema.cardPayments),
       db.select().from(schema.bankStatements),
+      db.select().from(schema.statementDates),
       db.select().from(schema.transfers),
       db.select().from(schema.budgets).orderBy(schema.budgets.category),
       db.select().from(schema.goals).orderBy(schema.goals.createdAt),
       db.select().from(schema.contributions),
     ]);
-  return { accounts, cards, purchases, recurring, prices, transactions, payments, bankStatements, transfers, budgets, goals, contributions };
+  return { accounts, cards, purchases, recurring, prices, transactions, payments, bankStatements, statementDates, transfers, budgets, goals, contributions };
 }
 
 /** Records the recurring charges that were already due (salary, subscriptions...) as real transactions. */
