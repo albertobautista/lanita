@@ -52,6 +52,37 @@ describe("due date moved by the bank", () => {
   });
 });
 
+describe("calendar", () => {
+  it("shows cutoffs, due dates (moved by the bank), last installments, recurring charges and goals of the month", () => {
+    const d = empty();
+    d.dueDates.push({ id: "f1", cardId: "t1", period: "2026-06", dueDate: "2026-06-27" });
+    d.purchases.push(purchase({ months: 3 }));
+    d.recurring.push({
+      id: "r1", type: "expense", isSubscription: true, description: "Netflix", category: "Suscripciones", frequency: "monthly", day: 31,
+      yearlyMonth: null, accountId: null, cardId: "t1", startPeriod: "2026-01", endPeriod: null, canceledOn: null, ...base,
+    });
+    d.prices.push({ id: "p1", recurringId: "r1", startPeriod: "2026-01", amount: 29_900 });
+    d.goals.push({ id: "g1", name: "Viaje", target: 1_000_000, targetDate: "2026-06-15", color: "#000", ...base });
+    const events = new Finance(d, "2026-06-01").calendar("2026-06");
+    expect(events.map((e) => [e.date, e.kind, e.title])).toEqual([
+      ["2026-06-05", "cutoff", "Corte de Oro"],
+      ["2026-06-15", "goal", "Meta: Viaje"],
+      ["2026-06-27", "due", "Pago de Oro"],
+      ["2026-06-27", "installment_end", "Terminas de pagar Refri"],
+      ["2026-06-30", "subscription", "Netflix"],
+    ]);
+    const due = events.find((e) => e.kind === "due")!;
+    expect(due.amount).toBe(due.statement!.noInterestPayment);
+    expect(due.detail).toBe("Incluye 1 mensualidad · el banco movió la fecha");
+  });
+  it("a due day before the cutoff puts the cutoff in the month before the payment", () => {
+    const d = empty();
+    d.cards = [card({ cutoffDay: 20, dueDay: 10 })];
+    const events = new Finance(d, "2026-06-01").calendar("2026-06");
+    expect(events.map((e) => [e.date, e.kind])).toEqual([["2026-06-10", "due"], ["2026-06-20", "cutoff"]]);
+  });
+});
+
 describe("purchaseSchedule", () => {
   it("interest-free installments split the exact amount in cents", () => {
     const s = purchaseSchedule(purchase({ amount: 1_000_000, months: 3 }), card());
