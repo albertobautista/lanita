@@ -27,6 +27,7 @@ const SECONDARY: Section[] = [
   { href: "/accounts", label: "Cuentas" },
   { href: "/budgets", label: "Presupuestos" },
   { href: "/goals", label: "Metas" },
+  { href: "/forecast", label: "Proyección" },
   { href: "/simulator", label: "Simulador" },
 ];
 
