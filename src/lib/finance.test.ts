@@ -338,3 +338,63 @@ it("addMonths crosses years", () => {
   expect(addMonths("2026-11", 3)).toBe("2027-02");
   expect(addMonths("2026-01", -1)).toBe("2025-12");
 });
+
+describe("cash flow projection", () => {
+  // Today: Nov 10. Salary of $20,000 on the 15th, rent of $12,000 on the 1st, both from the debit account. A $30,000 purchase
+  // at 3 months (Oct, Nov, Dec statements); October's was already paid.
+  const setup = () => {
+    const d = empty();
+    d.accounts.push({ id: "a1", name: "Débito", type: "debit", openingBalance: 0, color: "#000", ...base });
+    const rec = (id: string, type: "income" | "expense", description: string, day: number): Recurring => ({
+      id, type, isSubscription: false, description, category: "Casa", frequency: "monthly", day, yearlyMonth: null, accountId: "a1", cardId: null,
+      startPeriod: "2026-01", endPeriod: null, canceledOn: null, ...base,
+    });
+    d.recurring.push(rec("r1", "income", "Sueldo", 15), rec("r2", "expense", "Renta", 1));
+    d.prices.push({ id: "p1", recurringId: "r1", startPeriod: "2026-01", amount: 2_000_000 }, { id: "p2", recurringId: "r2", startPeriod: "2026-01", amount: 1_200_000 });
+    d.purchases.push(purchase({ amount: 3_000_000, months: 3, date: "2026-10-01" }));
+    d.payments.push(payment({ period: "2026-10", amount: 1_000_000, date: "2026-10-20" }));
+    return d;
+  };
+
+  it("adds only what is still to come this month, then whole months with card statements and variable spending", () => {
+    const flow = new Finance(setup(), "2026-11-10").cashFlow({ months: 4, variable: 300_000 });
+    expect(flow.rows.map((r) => [r.period, r.income, r.expenses, r.cards, r.end])).toEqual([
+      ["2026-11", 2_000_000, 0, 1_000_000, 1_000_000],
+      ["2026-12", 2_000_000, 1_500_000, 1_000_000, 500_000],
+      ["2027-01", 2_000_000, 1_500_000, 0, 1_000_000],
+      ["2027-02", 2_000_000, 1_500_000, 0, 1_500_000],
+    ]);
+    expect(flow).toMatchObject({ start: 0, lowest: 0, freeToSpend: 0, positiveFrom: "2026-11", monthlySaving: 250_000 });
+  });
+
+  it("starts from the accounts' balance and finds the month it turns and stays positive", () => {
+    const d = setup();
+    d.transactions.push(expense({ date: "2026-11-02", amount: 800_000, accountId: "a1", cardId: null }));
+    const flow = new Finance(d, "2026-11-10").cashFlow({ months: 4, variable: 300_000 });
+    expect(flow.rows.map((r) => r.end)).toEqual([200_000, -300_000, 200_000, 700_000]);
+    expect(flow).toMatchObject({ start: -800_000, lowest: -800_000, positiveFrom: "2027-01", monthlySaving: 200_000 });
+  });
+
+  it("never positive within the projection", () => {
+    const flow = new Finance(setup(), "2026-11-10").cashFlow({ months: 4, variable: 1_000_000 });
+    expect(flow).toMatchObject({ positiveFrom: null, monthlySaving: 0 });
+  });
+
+  it("a cash purchase that does not fit today says how short it falls and from which month it fits", () => {
+    const f = new Finance(setup(), "2026-11-10");
+    const r = f.canAfford({ amount: 800_000, months: 1, date: "2026-11-10", annualRate: 0, cardId: null }, { months: 6, variable: 300_000 });
+    expect(r).toMatchObject({ affordable: false, shortBy: 300_000, fitsFrom: "2027-01" });
+  });
+
+  it("a card purchase at months is paid from the next statements", () => {
+    const f = new Finance(setup(), "2026-11-10");
+    const r = f.canAfford({ amount: 900_000, months: 3, date: "2026-11-10", annualRate: 0, cardId: "t1" }, { months: 4, variable: 300_000 });
+    expect(r.flow.rows.map((x) => [x.period, x.purchase, x.end])).toEqual([
+      ["2026-11", 0, 1_000_000],
+      ["2026-12", 300_000, 200_000],
+      ["2027-01", 300_000, 400_000],
+      ["2027-02", 300_000, 600_000],
+    ]);
+    expect(r).toMatchObject({ affordable: true, fitsFrom: "2026-11" });
+  });
+});

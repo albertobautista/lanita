@@ -182,6 +182,24 @@ export type CalendarEvent = {
   color?: string;
 };
 
+export type CashPurchase = Pick<Purchase, "amount" | "months" | "date" | "annualRate"> & { cardId: string | null };
+
+export type CashFlowMonth = { period: string; start: number; income: number; expenses: number; cards: number; purchase: number; net: number; end: number };
+
+export type CashFlow = {
+  /** Debit and cash accounts today. */
+  start: number;
+  rows: CashFlowMonth[];
+  /** Lowest balance along the way (today included). */
+  lowest: number;
+  /** What can be spent today without the balance dropping below zero in any month. */
+  freeToSpend: number;
+  /** First month from which the balance stays at or above zero; null if it never does within the projection. */
+  positiveFrom: string | null;
+  /** What can be put away every month from `positiveFrom` on, keeping the balance at or above zero. */
+  monthlySaving: number;
+};
+
 export class Finance {
   readonly today: string;
   readonly current: string;
@@ -514,6 +532,104 @@ export class Finance {
     }
     const order = { critical: 0, warning: 1, info: 2 };
     return out.sort((a, b) => order[a.level] - order[b.level]);
+  }
+
+  /** Money in debit and cash accounts today (savings accounts are counted apart, as money already put away). */
+  cashToday() {
+    return this.d.accounts.filter((a) => a.type !== "savings").reduce((s, a) => s + this.accountBalance(a), 0);
+  }
+
+  /** Money already put away: savings accounts plus what was set aside for goals. */
+  savedToday() {
+    const accounts = this.d.accounts.filter((a) => a.type === "savings").reduce((s, a) => s + this.accountBalance(a), 0);
+    return accounts + this.d.contributions.reduce((s, c) => s + c.amount, 0);
+  }
+
+  /**
+   * Usual spending that is neither a recurring charge nor an installment (groceries, gas, eating out), averaged over the
+   * last 3 months by the month it is paid. The projection only knows what is recorded, so this fills in the rest.
+   */
+  typicalVariableSpending() {
+    const months = [1, 2, 3].map((i) => addMonths(this.current, -i));
+    const total = this.d.transactions
+      .filter((t) => t.type === "expense" && !t.recurringId && months.includes(this.countingPeriod(t)))
+      .reduce((s, t) => s + t.amount, 0);
+    return Math.round(total / 3);
+  }
+
+  /**
+   * Month-by-month cash projection, starting from what is in the debit and cash accounts today.
+   * The current month only adds what is still to come (pending income and bills, card payments still owed); later months
+   * add their whole income, fixed bills, card statements (paid in full) and `variable` spending. An optional purchase can
+   * be added to see how it changes the path.
+   */
+  cashFlow({ months = 12, variable = 0, purchase }: { months?: number; variable?: number; purchase?: CashPurchase } = {}): CashFlow {
+    const extra = new Map<string, number>();
+    if (purchase) {
+      const c = this.card(purchase.cardId);
+      if (c) for (const x of purchaseSchedule({ ...purchase, withVat: true, settledPeriod: null }, this.cycle(c))) extra.set(x.period, (extra.get(x.period) ?? 0) + x.amount);
+      else extra.set(periodOf(purchase.date), purchase.amount);
+    }
+    // Recorded movements of a later month that do not touch an account (those are already in today's balance) or a card.
+    const recorded = (type: Transaction["type"], period: string, i: number) =>
+      i === 0 ? 0 : this.d.transactions.filter((t) => t.type === type && !t.accountId && !this.card(t.cardId) && this.countingPeriod(t) === period).reduce((s, t) => s + t.amount, 0);
+    const start = this.cashToday();
+    let balance = start;
+    const rows = periodRange(this.current, months).map((period, i) => {
+      const proj = this.projected(period);
+      const onCard = (r: Recurring) => !!this.card(r.cardId);
+      const income =
+        proj.filter((x) => x.recurring.type === "income").reduce((s, x) => s + x.amount, 0) +
+        recorded("income", period, i);
+      const expenses =
+        proj.filter((x) => x.recurring.type === "expense" && !onCard(x.recurring)).reduce((s, x) => s + x.amount, 0) +
+        recorded("expense", period, i) +
+        (i === 0 ? 0 : variable);
+      // This month: what is still owed on each card (including any overdue balance). Later months: each statement in full.
+      const cards =
+        proj.filter((x) => x.recurring.type === "expense" && onCard(x.recurring)).reduce((s, x) => s + x.amount, 0) +
+        this.d.cards.reduce((s, c) => {
+          const st = this.statement(c, period);
+          // A payment already made toward a later statement already left the accounts.
+          return s + (i === 0 ? st.remaining : Math.max(0, st.installmentsTotal + st.chargesTotal - st.paid));
+        }, 0);
+      const purchaseAmount = extra.get(period) ?? 0;
+      const net = income - expenses - cards - purchaseAmount;
+      const row = { period, start: balance, income, expenses, cards, purchase: purchaseAmount, net, end: balance + net };
+      balance = row.end;
+      return row;
+    });
+
+    const lowest = Math.min(start, ...rows.map((r) => r.end));
+    // The month from which the balance stays at or above zero until the end of the projection.
+    let from = rows.length;
+    while (from > 0 && rows[from - 1].end >= 0) from--;
+    const positiveFrom = from < rows.length ? rows[from].period : null;
+    // The most you can put away every month from then on out of what each month leaves, without spending the money you
+    // already had and without the balance dropping below zero.
+    let monthlySaving = 0;
+    if (from < rows.length) {
+      const base = Math.max(0, rows[from].start);
+      monthlySaving = Infinity;
+      for (let k = from; k < rows.length; k++) monthlySaving = Math.min(monthlySaving, Math.floor((rows[k].end - base) / (k - from + 1)));
+      monthlySaving = Math.max(0, monthlySaving);
+    }
+    return { start, rows, lowest, freeToSpend: Math.max(0, lowest), positiveFrom, monthlySaving };
+  }
+
+  /** Whether a purchase keeps the balance at or above zero every month, and if not, the first month it would. */
+  canAfford(purchase: CashPurchase, { months = 12, variable = 0 } = {}) {
+    const flow = this.cashFlow({ months, variable, purchase });
+    let fitsFrom: string | null = null;
+    if (flow.lowest >= 0) fitsFrom = this.current;
+    else {
+      for (let k = 1; k < months; k++) {
+        const period = addMonths(this.current, k);
+        const later = this.cashFlow({ months: months + k, variable, purchase: { ...purchase, date: dateInPeriod(period, dayOf(purchase.date)) } });
+        if (later.lowest >= 0) { fitsFrom = period; break; }
+      }
+    }
+    return { flow, affordable: flow.lowest >= 0, shortBy: Math.max(0, -flow.lowest), fitsFrom };
   }
 
   /** Simulates a new purchase: how the next months' payments and the available credit change. */
