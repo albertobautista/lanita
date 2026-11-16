@@ -72,7 +72,10 @@ export default async function CardStatementPage({ params, searchParams }: { para
                   <tr key={purchase.id}>
                     <td>
                       {purchase.description}
-                      <div className="small muted">{payment.settlement ? "Liquidación del saldo" : "Mensualidad"}</div>
+                      <div className="small muted">
+                        {payment.settlement ? "Liquidación del saldo" : "Mensualidad"}
+                        {f.deferredBy.has(purchase.id) && ` ${f.schedule(purchase).indexOf(payment) + 1} de ${purchase.months} · corte del ${shortDate(purchase.date)}`}
+                      </div>
                     </td>
                     <td className="r num">{money(payment.amount)}</td>
                   </tr>
@@ -87,6 +90,25 @@ export default async function CardStatementPage({ params, searchParams }: { para
                   </tr>
                 ))}
               </tbody>
+              {st.deferred.length > 0 && (
+                <tbody>
+                  <tr>
+                    <td colSpan={2} className="small muted">
+                      Compras de {money(card.deferMinAmount ?? 0)} o más de este corte, diferidas a {card.deferMonths} meses sin intereses (
+                      {money(st.deferred.reduce((s, t) => s + t.amount, 0))} en total):
+                    </td>
+                  </tr>
+                  {st.deferred.map((t) => (
+                    <tr key={t.id}>
+                      <td className="small">
+                        {t.description || t.category}
+                        <div className="small muted">{shortDate(t.date)} · {t.category}</div>
+                      </td>
+                      <td className="r num small muted">{money(t.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              )}
               <tfoot>
                 <tr>
                   <td>Calculado por Lanita</td>
