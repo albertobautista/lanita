@@ -281,6 +281,15 @@ describe("automatic deferral of big purchases", () => {
     expect(new Map(s.byCategory).get("Ropa")).toBe(80_000);
   });
 
+  it("a difference against the bank statement is never deferred", () => {
+    const d = setup();
+    d.transactions.push(expense({ id: "diff", date: "2026-04-05", amount: 1_811_122, category: "Sin identificar", source: "difference" }));
+    const f = new Finance(d, "2026-04-01");
+    const apr = f.statement(f.d.cards[0], "2026-04");
+    expect(apr.charges.map((t) => t.id).sort()).toEqual(["diff", "small"]);
+    expect(apr.installments[0].purchase.amount).toBe(540_000);
+  });
+
   it("cards without a rule pay big purchases in full", () => {
     const d = setup();
     d.cards = [card()];
