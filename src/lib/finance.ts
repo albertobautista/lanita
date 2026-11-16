@@ -109,7 +109,8 @@ export function deferredCharges(c: Card & DeferralRule, cycle: CardCycle, transa
   const byPeriod = new Map<string, Transaction[]>();
   if (!rule) return byPeriod;
   for (const t of transactions) {
-    if (t.cardId !== c.id || t.type !== "expense" || t.amount < rule.min) continue;
+    // A difference against the bank is already the statement's own figure, so the bank never defers it again.
+    if (t.cardId !== c.id || t.type !== "expense" || t.source === "difference" || t.amount < rule.min) continue;
     const period = paymentPeriod(cycle, t.date);
     if (period < rule.from) continue;
     byPeriod.set(period, [...(byPeriod.get(period) ?? []), t]);

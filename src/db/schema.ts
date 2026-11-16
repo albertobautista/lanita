@@ -107,7 +107,8 @@ export const transactions = sqliteTable(
     cardId: text("card_id").references(() => cards.id),
     recurringId: text("recurring_id").references(() => recurring.id, { onDelete: "set null" }),
     period: text("period"),
-    source: text("source", { enum: ["manual", "imported", "chat", "recurring"] }).notNull().default("manual"),
+    // "difference": a gap against the bank statement recorded from the card page; it is already part of that statement.
+    source: text("source", { enum: ["manual", "imported", "chat", "recurring", "difference"] }).notNull().default("manual"),
     isSample: isSample(),
     createdAt: createdAt(),
   },

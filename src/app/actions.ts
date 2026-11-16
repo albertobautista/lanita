@@ -351,6 +351,7 @@ export async function recordDifference(cardId: string, p: string): Promise<Resul
     category: UNIDENTIFIED_CATEGORY,
     description: "Diferencia con el estado de cuenta",
     cardId,
+    source: "difference",
   });
   return done("Diferencia registrada como gasto sin identificar. Puedes editarlo cuando recuerdes qué fue.");
 }
