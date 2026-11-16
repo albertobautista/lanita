@@ -9,7 +9,7 @@ import { EmptyState, Field, Kpi, PageHeader, ProgressBar } from "@/components/ui
 import type { Card, Purchase } from "@/db/schema";
 import { cardBackground } from "@/lib/catalogs";
 import type { Finance } from "@/lib/finance";
-import { longDate, money, shortMonthYear } from "@/lib/format";
+import { longDate, money, shortDate, shortMonthYear } from "@/lib/format";
 import { getFinance } from "@/lib/page-helpers";
 import { addMonths } from "@/lib/periods";
 
@@ -17,8 +17,8 @@ export const metadata = { title: "Meses sin intereses" };
 
 export default async function InstallmentsPage() {
   const f = await getFinance();
-  const { cards, purchases } = f.d;
-  const rows = purchases.map((p) => ({ p, s: f.purchaseStatus(p) })).sort((a, b) => b.p.date.localeCompare(a.p.date));
+  const { cards } = f.d;
+  const rows = f.allPurchases().map((p) => ({ p, s: f.purchaseStatus(p) })).sort((a, b) => b.p.date.localeCompare(a.p.date));
   const active = rows.filter((r) => r.s.active);
   const finished = rows.filter((r) => !r.s.active);
   const pending = active.reduce((s, r) => s + r.s.remaining, 0);
@@ -125,8 +125,27 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
               <td className="full">
                 <b>{p.description}</b>
                 <div className="small muted">
-                  {money(p.amount)} a {p.months} meses{p.annualRate > 0 && ` · ${p.annualRate / 100} % anual`} · {longDate(p.date)}
+                  {money(p.amount)} a {p.months} meses{p.annualRate > 0 && ` · ${p.annualRate / 100} % anual`} · {f.deferredBy.has(p.id) ? `corte del ${longDate(p.date)}` : longDate(p.date)}
                 </div>
+                {f.deferredBy.has(p.id) && (
+                  <details>
+                    <summary>
+                      {f.deferredBy.get(p.id)!.length} compra{f.deferredBy.get(p.id)!.length === 1 ? "" : "s"} diferida{f.deferredBy.get(p.id)!.length === 1 ? "" : "s"} en automático
+                    </summary>
+                    <table>
+                      <tbody>
+                        {f.deferredBy.get(p.id)!.map((t) => (
+                          <tr key={t.id}>
+                            <td>
+                              {t.description || t.category} · {shortDate(t.date)}
+                            </td>
+                            <td className="r num">{money(t.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </details>
+                )}
                 <details>
                   <summary>Calendario</summary>
                   <table>
@@ -163,6 +182,11 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
                 {money(s.remaining)}
               </td>
               <td className="full r">
+                {f.deferredBy.has(p.id) ? (
+                  <span className="small muted" title="La tarjeta las difiere sola. Para cambiarlas edita las compras en Ingresos y gastos o la regla de la tarjeta.">
+                    Auto
+                  </span>
+                ) : (
                 <RowMenu label={p.description}>
                   <Dialog trigger="Editar" title={`Editar ${p.description}`} className="menuitem">
                     <ActionForm action={savePurchase} resetOnSuccess={false}>
@@ -190,6 +214,7 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
                     Borrar
                   </ActionButton>
                 </RowMenu>
+                )}
               </td>
             </tr>
           ))}

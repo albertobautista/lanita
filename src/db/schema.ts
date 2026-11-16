@@ -31,6 +31,11 @@ export const cards = sqliteTable("cards", {
   minPctLimit: integer("min_pct_limit").notNull().default(125),
   // Ordinary annual rate (basis points), used to estimate interest when not paid in full.
   annualRate: integer("annual_rate").notNull().default(0),
+  // Automatic deferral (e.g. Amex): at each cutoff, the purchases of at least `deferMinAmount` are added up and that total
+  // is split into `deferMonths` interest-free installments. Applies to statements due from `deferFromPeriod` on.
+  deferMinAmount: integer("defer_min_amount"),
+  deferMonths: integer("defer_months"),
+  deferFromPeriod: text("defer_from_period"),
   isSample: isSample(),
   createdAt: createdAt(),
 });

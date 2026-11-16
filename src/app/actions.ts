@@ -63,13 +63,20 @@ const cardSchema = z.object({
   minPctBalance: z.coerce.number().min(0).max(100).default(1.5),
   minPctLimit: z.coerce.number().min(0).max(100).default(1.25),
   annualRate: z.coerce.number().min(0).max(300).default(0),
+  deferMinAmount: z.preprocess((v) => (v === "" || v == null ? null : toCents(v as string)), z.number().int().positive("El monto para diferir debe ser mayor a cero").nullable()),
+  deferMonths: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().min(2, "Difiere al menos a 2 meses").max(48).nullable()),
+  deferFromPeriod: optional.refine((v) => v == null || isPeriod(v), "Mes inválido"),
 });
 
 export async function saveCard(_: Result | null, fd: FormData): Promise<Result> {
   const r = parse(cardSchema, fd);
   if ("error" in r) return { ok: false, error: r.error };
-  const { id, minPctBalance, minPctLimit, annualRate, ...v } = r.data;
-  const values = { ...v, minPctBalance: Math.round(minPctBalance * 100), minPctLimit: Math.round(minPctLimit * 100), annualRate: Math.round(annualRate * 100) };
+  const { id, minPctBalance, minPctLimit, annualRate, deferMinAmount, deferMonths, deferFromPeriod, ...v } = r.data;
+  if (deferMinAmount != null && Number.isNaN(deferMinAmount)) return { ok: false, error: "Escribe un monto válido para diferir" };
+  if ((deferMinAmount == null) !== (deferMonths == null)) return { ok: false, error: "Para diferir en automático pon el monto mínimo y los meses" };
+  // Without a start month the rule applies from this month's statement on, so months already paid stay as they were.
+  const deferral = deferMinAmount != null ? { deferMinAmount, deferMonths, deferFromPeriod: deferFromPeriod ?? periodOf(todayISO()) } : { deferMinAmount: null, deferMonths: null, deferFromPeriod: null };
+  const values = { ...v, ...deferral, minPctBalance: Math.round(minPctBalance * 100), minPctLimit: Math.round(minPctLimit * 100), annualRate: Math.round(annualRate * 100) };
   return attempt(async () => {
     if (id) await db.update(schema.cards).set(values).where(eq(schema.cards.id, id));
     else await db.insert(schema.cards).values(values);

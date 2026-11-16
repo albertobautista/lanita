@@ -90,6 +90,33 @@ export function planSummary(p: PurchasePlan, c: CardCycle) {
   };
 }
 
+// ---------- automatic deferral ----------
+
+export type DeferralRule = Pick<Card, "deferMinAmount" | "deferMonths" | "deferFromPeriod">;
+
+/** Whether the card defers big purchases on its own, and the rule if so. */
+export function deferralRule(c: DeferralRule) {
+  if (!c.deferMinAmount || !c.deferMonths || c.deferMonths < 2) return null;
+  return { min: c.deferMinAmount, months: c.deferMonths, from: c.deferFromPeriod ?? "" };
+}
+
+/**
+ * Charges the bank defers: on cards with a rule, every expense of at least the minimum amount whose statement is due from
+ * the rule's start on. At each cutoff those charges are added up and the total becomes one interest-free installment plan.
+ */
+export function deferredCharges(c: Card & DeferralRule, cycle: CardCycle, transactions: Transaction[]) {
+  const rule = deferralRule(c);
+  const byPeriod = new Map<string, Transaction[]>();
+  if (!rule) return byPeriod;
+  for (const t of transactions) {
+    if (t.cardId !== c.id || t.type !== "expense" || t.amount < rule.min) continue;
+    const period = paymentPeriod(cycle, t.date);
+    if (period < rule.from) continue;
+    byPeriod.set(period, [...(byPeriod.get(period) ?? []), t]);
+  }
+  return byPeriod;
+}
+
 // ---------- recurring charges and subscriptions ----------
 
 export function currentPrice(prices: RecurringPrice[], recurringId: string, period: string) {
@@ -147,6 +174,8 @@ export type CardStatement = {
   dueDate: string;
   installments: { purchase: Purchase; payment: ScheduledPayment }[];
   charges: Transaction[];
+  /** Charges of this cutoff the bank deferred automatically (they are paid through the installments, not in full). */
+  deferred: Transaction[];
   installmentsTotal: number;
   chargesTotal: number;
   previousBalance: number;
@@ -206,10 +235,42 @@ export class Finance {
   private statements = new Map<string, CardStatement>();
   private schedules = new Map<string, ScheduledPayment[]>();
   private cycles = new Map<string, CardCycle>();
+  /** Installment plans the cards create on their own from big purchases (see `deferredCharges`). */
+  readonly deferredPlans: Purchase[] = [];
+  /** Charges of each deferred plan, by plan id. */
+  readonly deferredBy = new Map<string, Transaction[]>();
+  private deferredIds = new Set<string>();
 
   constructor(readonly d: Data, today: string) {
     this.today = today;
     this.current = periodOf(today);
+    for (const c of d.cards) {
+      const rule = deferralRule(c);
+      if (!rule) continue;
+      for (const [period, charges] of deferredCharges(c, this.cycle(c), d.transactions)) {
+        const id = `deferred:${c.id}:${period}`;
+        const categories = new Set(charges.map((t) => t.category));
+        this.deferredPlans.push({
+          id, cardId: c.id, description: `Compras diferidas a ${rule.months} MSI`,
+          category: categories.size === 1 ? charges[0].category : "Varios",
+          amount: charges.reduce((s, t) => s + t.amount, 0), months: rule.months,
+          // Dated on the cutoff, so the first installment lands in the statement that carries the charges.
+          date: cutoffDate(this.cycle(c), period), annualRate: 0, withVat: false, settledPeriod: null, isSample: c.isSample, createdAt: "",
+        });
+        this.deferredBy.set(id, charges);
+        for (const t of charges) this.deferredIds.add(t.id);
+      }
+    }
+  }
+
+  /** Whether the card deferred this charge into installments. */
+  isDeferred(t: Pick<Transaction, "id">) {
+    return this.deferredIds.has(t.id);
+  }
+
+  /** Recorded installment purchases plus the plans cards create on their own. */
+  allPurchases() {
+    return this.deferredPlans.length ? [...this.d.purchases, ...this.deferredPlans] : this.d.purchases;
   }
 
   card(id: string | null | undefined) {
@@ -265,10 +326,12 @@ export class Finance {
     const prevBalance = prev ? prev.netCharges - prev.paid : 0;
     const previousBalance = prev && (prevBalance < 0 || prev.daysUntilDue < 0) ? prevBalance : 0;
 
-    const installments = this.d.purchases
+    const installments = this.allPurchases()
       .filter((p) => p.cardId === c.id)
       .flatMap((purchase) => this.schedule(purchase).filter((x) => x.period === period).map((payment) => ({ purchase, payment })));
-    const charges = this.d.transactions.filter((t) => t.cardId === c.id && t.type === "expense" && paymentPeriod(this.cycle(c), t.date) === period);
+    const cycleCharges = this.d.transactions.filter((t) => t.cardId === c.id && t.type === "expense" && paymentPeriod(this.cycle(c), t.date) === period);
+    const charges = cycleCharges.filter((t) => !this.isDeferred(t));
+    const deferred = cycleCharges.filter((t) => this.isDeferred(t));
     const installmentsTotal = installments.reduce((s, x) => s + x.payment.amount, 0);
     const chargesTotal = charges.reduce((s, t) => s + t.amount, 0);
     const calculatedNet = installmentsTotal + chargesTotal + previousBalance;
@@ -296,7 +359,7 @@ export class Finance {
     else status = "pending";
 
     const st: CardStatement = {
-      period, cutoffDate: cutoffDate(this.cycle(c), period), dueDate: due, installments, charges, installmentsTotal, chargesTotal,
+      period, cutoffDate: cutoffDate(this.cycle(c), period), dueDate: due, installments, charges, deferred, installmentsTotal, chargesTotal,
       previousBalance, calculated, bank, difference: bank ? bank.noInterestPayment - calculated : 0, netCharges, noInterestPayment, minimumPayment, estimatedInterest, paid, remaining: Math.max(0, noInterestPayment - paid), status, daysUntilDue,
     };
     this.statements.set(key, st);
@@ -354,7 +417,7 @@ export class Finance {
   /** Installments of purchases due in `period` (all cards, or one). */
   installmentsIn(period: string, cardId?: string) {
     let s = 0;
-    for (const p of this.d.purchases) if (!cardId || p.cardId === cardId) for (const x of this.schedule(p)) if (x.period === period) s += x.amount;
+    for (const p of this.allPurchases()) if (!cardId || p.cardId === cardId) for (const x of this.schedule(p)) if (x.period === period) s += x.amount;
     return s;
   }
 
@@ -382,7 +445,8 @@ export class Finance {
   }
 
   monthSummary(period: string) {
-    const txs = this.d.transactions.filter((t) => this.countingPeriod(t) === period);
+    // Deferred charges are counted through their installments, like any purchase at months.
+    const txs = this.d.transactions.filter((t) => this.countingPeriod(t) === period && !this.isDeferred(t));
     const proj = this.projected(period);
     const income = txs.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
     const expenses = txs.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
@@ -391,7 +455,15 @@ export class Finance {
     const installments = this.installmentsIn(period);
     const byCategory = new Map<string, number>();
     for (const t of txs) if (t.type === "expense") byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + t.amount);
-    for (const p of this.d.purchases) for (const x of this.schedule(p)) if (x.period === period) byCategory.set(p.category, (byCategory.get(p.category) ?? 0) + x.amount);
+    const add = (category: string, amount: number) => byCategory.set(category, (byCategory.get(category) ?? 0) + amount);
+    for (const p of this.allPurchases())
+      for (const x of this.schedule(p)) {
+        if (x.period !== period) continue;
+        const parts = this.deferredBy.get(p.id);
+        // A deferred plan mixes purchases: each installment is split among their categories.
+        if (parts) for (const t of parts) add(t.category, Math.round((x.amount * t.amount) / p.amount));
+        else add(p.category, x.amount);
+      }
     return {
       income, expenses, installments, projectedIncome, projectedExpenses,
       total: expenses + installments,

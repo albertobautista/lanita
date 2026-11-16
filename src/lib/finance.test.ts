@@ -6,7 +6,7 @@ import { addMonths } from "./periods";
 const base = { isSample: false, createdAt: "2026-01-01" };
 const card = (x: Partial<Card> = {}): Card => ({
   id: "t1", name: "Oro", bank: "", last4: "", creditLimit: 5_000_000, cutoffDay: 5, dueDay: 25, color: "#000",
-  minPctBalance: 150, minPctLimit: 125, annualRate: 0, ...base, ...x,
+  minPctBalance: 150, minPctLimit: 125, annualRate: 0, deferMinAmount: null, deferMonths: null, deferFromPeriod: null, ...base, ...x,
 });
 const purchase = (x: Partial<Purchase> = {}): Purchase => ({
   id: "c1", cardId: "t1", description: "Refri", category: "Casa", amount: 1_200_000, months: 12, date: "2026-03-10",
@@ -221,6 +221,71 @@ describe("card statement", () => {
     expect(f.statement(d.cards[0], "2026-11").noInterestPayment).toBe(100_000);
     expect(f.used(d.cards[0])).toBe(200_000);
     expect(overduePayments(d, today, "t1")).toEqual([]);
+  });
+});
+
+describe("automatic deferral of big purchases", () => {
+  // Cutoff 5, due 25: purchases from Mar 6 to Apr 5 are paid in the April statement.
+  const amex = () => card({ deferMinAmount: 240_000, deferMonths: 3, deferFromPeriod: "2026-04" });
+  const setup = () => {
+    const d = empty();
+    d.cards = [amex()];
+    d.transactions.push(
+      expense({ id: "big1", date: "2026-03-10", amount: 300_000, category: "Casa" }),
+      expense({ id: "big2", date: "2026-04-02", amount: 240_000, category: "Ropa" }),
+      expense({ id: "small", date: "2026-03-20", amount: 239_999 }),
+      // Next cutoff: its own plan.
+      expense({ id: "big3", date: "2026-04-10", amount: 600_000, category: "Casa" }),
+    );
+    return d;
+  };
+
+  it("adds up the purchases of at least the minimum in each cutoff and splits the total into interest-free months", () => {
+    const f = new Finance(setup(), "2026-04-01");
+    const c = f.d.cards[0];
+    const apr = f.statement(c, "2026-04");
+    expect(apr.charges.map((t) => t.id)).toEqual(["small"]);
+    expect(apr.deferred.map((t) => t.id).sort()).toEqual(["big1", "big2"]);
+    expect(apr.installments).toHaveLength(1);
+    expect(apr.installments[0].purchase.amount).toBe(540_000);
+    expect(apr.installmentsTotal).toBe(180_000);
+    expect(apr.noInterestPayment).toBe(180_000 + 239_999);
+    // May: 2nd installment of April's plan + 1st of May's.
+    expect(f.statement(c, "2026-05").installmentsTotal).toBe(180_000 + 200_000);
+    expect(f.statement(c, "2026-06").installmentsTotal).toBe(180_000 + 200_000);
+    expect(f.statement(c, "2026-07").installmentsTotal).toBe(200_000);
+    expect(f.statement(c, "2026-08").installmentsTotal).toBe(0);
+    expect(f.installmentsIn("2026-05")).toBe(380_000);
+  });
+
+  it("the credit used still counts the whole purchases", () => {
+    const f = new Finance(setup(), "2026-04-01");
+    expect(f.used(f.d.cards[0])).toBe(300_000 + 240_000 + 239_999 + 600_000);
+  });
+
+  it("statements before the rule's start month are left as they were", () => {
+    const d = setup();
+    d.transactions.push(expense({ id: "old", date: "2026-02-10", amount: 500_000 }));
+    const f = new Finance(d, "2026-04-01");
+    const mar = f.statement(f.d.cards[0], "2026-03");
+    expect(mar.charges.map((t) => t.id)).toEqual(["old"]);
+    expect(mar.installments).toHaveLength(0);
+  });
+
+  it("the month summary counts the installments, split among the categories of the purchases", () => {
+    const f = new Finance(setup(), "2026-04-01");
+    const s = f.monthSummary("2026-04");
+    expect(s.expenses).toBe(239_999);
+    expect(s.installments).toBe(180_000);
+    expect(new Map(s.byCategory).get("Casa")).toBe(100_000);
+    expect(new Map(s.byCategory).get("Ropa")).toBe(80_000);
+  });
+
+  it("cards without a rule pay big purchases in full", () => {
+    const d = setup();
+    d.cards = [card()];
+    const f = new Finance(d, "2026-04-01");
+    expect(f.statement(f.d.cards[0], "2026-04").noInterestPayment).toBe(300_000 + 240_000 + 239_999);
   });
 });
 

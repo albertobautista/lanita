@@ -99,6 +99,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
                     <td className="grow span2">
                       {t.description || "—"}
                       {t.recurringId && <span className="pill neutral" style={{ marginLeft: 6 }}>fijo</span>}
+                      {f.isDeferred(t) && <span className="pill neutral" style={{ marginLeft: 6 }}>a {f.card(t.cardId)?.deferMonths} MSI</span>}
                       <div className="small muted narrow-only">
                         {shortDate(t.date)} · {t.category} · {f.card(t.cardId)?.name ?? f.account(t.accountId)?.name ?? "—"}
                       </div>

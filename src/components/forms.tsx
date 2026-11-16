@@ -44,6 +44,21 @@ export function CardFields({ card }: { card?: Card }) {
           <input name="annualRate" type="number" step="0.01" min={0} defaultValue={card ? card.annualRate / 100 : 0} />
         </Field>
       </details>
+      <details open={!!card?.deferMinAmount}>
+        <summary>Meses sin intereses automáticos</summary>
+        <p className="hint" style={{ marginTop: 10 }}>
+          Algunas tarjetas (como la Amex Gold) suman en cada corte las compras desde cierto monto y difieren ese total a meses sin intereses. Déjalo vacío si la tuya no lo hace.
+        </p>
+        <div className="fields2">
+          <MoneyField label="Compras desde" name="deferMinAmount" value={toPesos(card?.deferMinAmount ?? undefined)} required={false} />
+          <Field label="Meses">
+            <input name="deferMonths" type="number" min={2} max={48} defaultValue={card?.deferMonths ?? ""} placeholder="3" />
+          </Field>
+        </div>
+        <Field label="A partir del estado de cuenta de">
+          <input name="deferFromPeriod" type="month" defaultValue={card?.deferFromPeriod ?? ""} />
+        </Field>
+      </details>
       <ColorField idPrefix={`card-${card?.id ?? "new"}`} value={card?.color} />
     </>
   );
