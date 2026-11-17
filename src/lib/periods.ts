@@ -2,8 +2,12 @@
 
 export const pad = (n: number) => String(n).padStart(2, "0");
 
-export function todayISO(d = new Date()) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** Time zone that decides what "today" is. The server runs in UTC, which is already tomorrow from 6 PM in Mexico City. */
+export const TIME_ZONE = process.env.NEXT_PUBLIC_TIME_ZONE || "America/Mexico_City";
+
+export function todayISO(d = new Date(), timeZone = TIME_ZONE) {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 
 export const periodOf = (date: string) => date.slice(0, 7);

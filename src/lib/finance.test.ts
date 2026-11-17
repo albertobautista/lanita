@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Card, CardPayment, Purchase, Recurring, RecurringPrice, Transaction } from "@/db/schema";
 import { chargeInPeriod, Finance, nextCharge, overduePayments, paymentPeriod, pendingOccurrences, purchaseSchedule, type Data } from "./finance";
-import { addMonths } from "./periods";
+import { addMonths, todayISO } from "./periods";
 
 const base = { isSample: false, createdAt: "2026-01-01" };
 const card = (x: Partial<Card> = {}): Card => ({
@@ -41,7 +41,7 @@ describe("due date moved by the bank", () => {
     const f = new Finance(d, "2026-03-26");
     expect(f.statement(d.cards[0], "2026-03")).toMatchObject({ cutoffDate: "2026-03-05", dueDate: "2026-03-27", chargesTotal: 50_000, status: "due_soon", daysUntilDue: 1 });
     expect(f.statement(d.cards[0], "2026-04")).toMatchObject({ cutoffDate: "2026-04-05", dueDate: "2026-04-25" });
-    expect(f.alerts().map((a) => a.text)).toContain("Oro: paga antes del 27 (en 1 días) para no generar intereses");
+    expect(f.alerts()).toContainEqual(expect.objectContaining({ title: "Oro", text: "Paga antes del 27 para no generar intereses", days: 1, amount: 50_000 }));
   });
   it("a statement is not overdue until its moved due date passes", () => {
     const d = empty();
@@ -149,7 +149,8 @@ describe("card statement", () => {
     d.payments.push(payment({ amount: 300_000, date: "2026-04-10" }));
     expect(new Finance(d, "2026-04-10").alerts().some((a) => a.text.includes("te faltan"))).toBe(false);
     const alert = new Finance(d, "2026-04-22").alerts().find((a) => a.text.includes("te faltan"));
-    expect(alert?.text).toContain("antes del 25 (en 3 días)");
+    expect(alert?.text).toContain("antes del 25");
+    expect(alert).toMatchObject({ days: 3, amount: 700_000 });
   });
   it("the real bank statement overrides and shows the difference", () => {
     const d = empty();
@@ -369,6 +370,14 @@ describe("month summary", () => {
 });
 
 describe("alerts", () => {
+  it("warns about a card payment due tomorrow, also when its big purchases were deferred", () => {
+    const d = empty();
+    d.cards[0] = card({ name: "Amex Gold", cutoffDay: 28, dueDay: 17, deferMinAmount: 240_000, deferMonths: 3, deferFromPeriod: "2026-01" });
+    d.transactions.push(expense({ date: "2026-10-10", amount: 300_000 }), expense({ date: "2026-10-12", amount: 50_000 }));
+    const alert = new Finance(d, "2026-11-16").alerts().find((a) => a.kind === "card");
+    expect(alert).toMatchObject({ level: "warning", title: "Amex Gold", text: "Paga antes del 17 para no generar intereses", days: 1, amount: 150_000 });
+    expect(new Finance(d, "2026-11-17").alerts().find((a) => a.kind === "card")?.text).toBe("Paga hoy para no generar intereses");
+  });
   it("warns about a fixed bill paid from an account like a card payment", () => {
     const d = empty();
     d.recurring.push({
@@ -377,7 +386,7 @@ describe("alerts", () => {
     });
     d.prices.push({ id: "p1", recurringId: "r1", startPeriod: "2026-01", amount: 800_000 });
     const f = new Finance(d, "2026-10-20");
-    expect(f.alerts()).toContainEqual({ level: "warning", text: "Renta: paga el 22 (en 2 días)", href: "/subscriptions" });
+    expect(f.alerts()).toContainEqual({ kind: "bill", level: "warning", title: "Renta", text: "Paga el 22", href: "/subscriptions", amount: 800_000, days: 2 });
     expect(new Finance(d, "2026-10-16").alerts()).toEqual([]);
     expect(f.monthSummary("2026-10").projectedExpenses).toBe(800_000);
   });
@@ -470,5 +479,13 @@ describe("cash flow projection", () => {
       ["2027-02", 300_000, 600_000],
     ]);
     expect(r).toMatchObject({ affordable: true, fitsFrom: "2026-11" });
+  });
+});
+
+describe("todayISO", () => {
+  it("uses Mexico City's date, not the server's UTC date", () => {
+    // 6:30 PM on Nov 16 in Mexico City is already Nov 17 in UTC.
+    expect(todayISO(new Date("2026-11-17T00:30:00Z"))).toBe("2026-11-16");
+    expect(todayISO(new Date("2026-11-17T06:30:00Z"))).toBe("2026-11-17");
   });
 });
