@@ -3,6 +3,7 @@ import { recordPayment, settleOverdue } from "@/app/actions";
 import { loadSampleData } from "@/app/sample-actions";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm } from "@/components/ActionForm";
+import { Alerts } from "@/components/Alerts";
 import { Dialog } from "@/components/Dialog";
 import { MonthsAhead } from "@/components/MonthsAhead";
 import { PaymentFields } from "@/components/forms";
@@ -36,9 +37,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
   }
 
   const s = f.monthSummary(month);
-  // Alerts about a statement shown in "Pagos de tarjetas" already show up there as its status.
-  const shownStatements = new Set(cards.map((c) => `/cards/${c.id}?month=${month}`));
-  const alerts = month === f.current ? f.alerts().filter((a) => !shownStatements.has(a.href)) : [];
+  const alerts = month === f.current ? f.alerts() : [];
   const payments = cards
     .map((c) => {
       const st = f.statement(c, month);
@@ -88,6 +87,8 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
           </div>
         </dl>
       </section>
+
+      {alerts.length > 0 && <Alerts alerts={alerts} />}
 
       <section className="panel">
         <div className="row between">
@@ -140,20 +141,6 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
           </div>
         )}
       </section>
-
-      {alerts.length > 0 && (
-        <section className="panel">
-          <h2>Avisos</h2>
-          <div className="list">
-            {alerts.map((a) => (
-              <Link key={a.text} href={a.href} className="alert">
-                <span className={`pill ${a.level === "critical" ? "bad" : a.level === "warning" ? "warn" : "neutral"}`}>{a.level === "critical" ? "Urgente" : a.level === "warning" ? "Atención" : "Aviso"}</span>
-                <span>{a.text}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
 
       <section className="panel">
         <div className="row between">

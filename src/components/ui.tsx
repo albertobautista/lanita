@@ -40,8 +40,8 @@ export function StatusPill({ st }: { st: CardStatement }) {
       case "advance": return ["warn", `Faltan ${money(st.remaining)}`];
       case "minimum": return ["warn", "Pagaste el mínimo"];
       case "partial": return ["warn", "Pago parcial"];
-      case "overdue": return ["bad", `Venció hace ${-st.daysUntilDue} días`];
-      case "due_soon": return ["warn", st.daysUntilDue === 0 ? "Vence hoy" : `Vence en ${st.daysUntilDue} días`];
+      case "overdue": return ["bad", `Venció hace ${-st.daysUntilDue} ${st.daysUntilDue === -1 ? "día" : "días"}`];
+      case "due_soon": return ["warn", st.daysUntilDue === 0 ? "Vence hoy" : st.daysUntilDue === 1 ? "Vence mañana" : `Vence en ${st.daysUntilDue} días`];
       default: return ["neutral", "Pendiente"];
     }
   })();

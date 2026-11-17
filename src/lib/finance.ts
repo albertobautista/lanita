@@ -230,6 +230,23 @@ export type CashFlow = {
   monthlySaving: number;
 };
 
+export type Alert = {
+  level: "critical" | "warning" | "info";
+  kind: "card" | "limit" | "budget" | "bill" | "subscription";
+  /** What it is about: a card, a bill, a budget. */
+  title: string;
+  text: string;
+  href: string;
+  /** Money involved, when there is a payment to make. */
+  amount?: number;
+  /** Days until it is due (negative once it passed). */
+  days?: number;
+  /** Card color, to show its swatch. */
+  color?: string;
+};
+
+const dayCount = (n: number) => `${n} ${n === 1 ? "día" : "días"}`;
+
 export class Finance {
   readonly today: string;
   readonly current: string;
@@ -570,41 +587,43 @@ export class Finance {
   }
 
   // Alert texts are shown in the app, so they stay in Spanish.
-  alerts() {
-    const out: { level: "critical" | "warning" | "info"; text: string; href: string }[] = [];
+  alerts(): Alert[] {
+    const out: Alert[] = [];
     for (const c of this.d.cards) {
       for (const period of [addMonths(this.current, -1), this.current, addMonths(this.current, 1)]) {
         const st = this.statement(c, period);
         const href = `/cards/${c.id}?month=${period}`;
-        if (st.status === "overdue") out.push({ level: "critical", text: `${c.name}: el pago de ${shortPeriodLabel(period)} venció hace ${-st.daysUntilDue} días`, href });
-        if (st.status === "due_soon") out.push({ level: "warning", text: `${c.name}: paga antes del ${Number(st.dueDate.slice(8))} (en ${st.daysUntilDue} días) para no generar intereses`, href });
+        const day = Number(st.dueDate.slice(8));
+        const card = { kind: "card" as const, title: c.name, color: c.color, href, amount: st.remaining, days: st.daysUntilDue };
+        if (st.status === "overdue") out.push({ ...card, level: "critical", text: `El pago de ${shortPeriodLabel(period)} venció hace ${dayCount(-st.daysUntilDue)}` });
+        if (st.status === "due_soon") out.push({ ...card, level: "warning", text: `Paga ${st.daysUntilDue === 0 ? "hoy" : `antes del ${day}`} para no generar intereses` });
         if (st.status === "advance" && st.daysUntilDue <= 5) {
-          const when = st.daysUntilDue === 0 ? "hoy" : `antes del ${Number(st.dueDate.slice(8))} (en ${st.daysUntilDue} días)`;
-          out.push({ level: "warning", text: `${c.name}: te faltan ${money(st.remaining)}; págalos ${when} para no generar intereses`, href });
+          out.push({ ...card, level: "warning", text: `Ya pagaste ${money(st.paid)}; te faltan ${money(st.remaining)} ${st.daysUntilDue === 0 ? "hoy" : `antes del ${day}`} para no generar intereses` });
         }
       }
       const u = c.creditLimit > 0 ? this.used(c) / c.creditLimit : 0;
-      if (u >= 0.9) out.push({ level: "warning", text: `${c.name}: usas el ${Math.round(u * 100)} % de tu límite`, href: "/cards" });
+      if (u >= 0.9) out.push({ kind: "limit", level: "warning", title: c.name, color: c.color, text: `Usas el ${Math.round(u * 100)} % de tu límite`, href: "/cards" });
     }
     for (const b of this.budgets(this.current)) {
-      if (b.level === "over") out.push({ level: "warning", text: `Te pasaste del presupuesto de ${b.budget.category}`, href: "/budgets" });
-      else if (b.level === "warning") out.push({ level: "info", text: `Llevas el ${Math.round(b.pct * 100)} % del presupuesto de ${b.budget.category}`, href: "/budgets" });
+      const title = `Presupuesto de ${b.budget.category}`;
+      if (b.level === "over") out.push({ kind: "budget", level: "warning", title, text: b.spent > b.budget.amount ? `Te pasaste por ${money(b.spent - b.budget.amount)}` : "Ya usaste todo", href: "/budgets" });
+      else if (b.level === "warning") out.push({ kind: "budget", level: "info", title, text: `Llevas el ${Math.round(b.pct * 100)} %`, href: "/budgets" });
     }
     for (const r of this.d.recurring.filter((r) => r.type === "expense")) {
       const next = nextCharge(r, this.d.prices, this.today);
       if (!next) continue;
       const days = daysBetween(this.today, next.date);
       const day = Number(next.date.slice(8));
+      const base = { title: r.description, href: "/subscriptions", amount: next.amount, days };
       // Fixed bills are warned like a card payment; subscriptions charge themselves, so a short notice is enough.
       if (r.isSubscription) {
-        if (days <= 3) out.push({ level: "info", text: `${r.description} se cobra el ${day}`, href: "/subscriptions" });
+        if (days <= 3) out.push({ ...base, kind: "subscription", level: "info", text: `Se cobra el ${day}` });
       } else if (days <= 5) {
-        const when = days === 0 ? "hoy" : `en ${days} ${days === 1 ? "día" : "días"}`;
-        out.push({ level: "warning", text: `${r.description}: ${r.cardId ? "se cobra" : "paga"} el ${day} (${when})`, href: "/subscriptions" });
+        out.push({ ...base, kind: "bill", level: "warning", text: `${r.cardId ? "Se cobra" : "Paga"} el ${day}` });
       }
     }
     const order = { critical: 0, warning: 1, info: 2 };
-    return out.sort((a, b) => order[a.level] - order[b.level]);
+    return out.sort((a, b) => order[a.level] - order[b.level] || (a.days ?? 99) - (b.days ?? 99));
   }
 
   /** Money in debit and cash accounts today (savings accounts are counted apart, as money already put away). */
