@@ -46,6 +46,8 @@ export function cutoffDate(c: CardCycle, period: string) {
 
 // ---------- installment purchases ----------
 
+export type InstallmentState = "paid" | "billed" | "upcoming";
+
 export type ScheduledPayment = { period: string; amount: number; principal: number; interest: number; settlement: boolean };
 
 export type PurchasePlan = Pick<Purchase, "amount" | "months" | "date" | "annualRate" | "withVat" | "settledPeriod">;
@@ -414,9 +416,17 @@ export class Finance {
     });
     const plan = c ? planSummary(p, this.cycle(c)) : null;
     const remaining = schedule.filter((x) => !covered.includes(x)).reduce((s, x) => s + x.amount, 0);
+    // Each installment as the bank sees it: paid, already on a statement waiting to be paid, or still to come.
+    const installments = schedule.map((x) => {
+      const due = c ? dueDate(this.cycle(c), x.period) : null;
+      const cutoff = c ? cutoffDate(this.cycle(c), x.period) : null;
+      const state: InstallmentState = covered.includes(x) ? "paid" : cutoff && cutoff <= this.today ? "billed" : "upcoming";
+      return { ...x, state, dueDate: due, cutoffDate: cutoff };
+    });
     return {
       card: c,
       schedule,
+      installments,
       installment: plan?.installment ?? 0,
       start: plan?.start ?? this.current,
       end: plan?.end ?? this.current,
