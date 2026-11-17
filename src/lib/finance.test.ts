@@ -194,6 +194,14 @@ describe("card statement", () => {
     expect(st.paidCount).toBe(1);
     expect(st.billedCount).toBe(2);
   });
+  it("tells each installment apart: paid, on a statement, or still to come", () => {
+    const d = empty();
+    d.cards[0] = card({ cutoffDay: 12, dueDay: 2 });
+    d.purchases.push(purchase({ amount: 600_000, months: 6, date: "2026-08-31" }));
+    const st = new Finance(d, "2026-10-20").purchaseStatus(d.purchases[0]);
+    expect(st.installments.map((x) => x.state)).toEqual(["paid", "billed", "upcoming", "upcoming", "upcoming", "upcoming"]);
+    expect(st.installments[1]).toMatchObject({ period: "2026-11", dueDate: "2026-11-02", cutoffDate: "2026-10-12" });
+  });
   it("a credit balance does not mark future installments as paid", () => {
     const d = empty();
     d.purchases.push(purchase({ amount: 600_000, months: 6, date: "2026-06-03" }));

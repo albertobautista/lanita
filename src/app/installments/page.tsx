@@ -6,8 +6,9 @@ import { Dialog } from "@/components/Dialog";
 import { RowMenu } from "@/components/RowMenu";
 import { PurchaseFields } from "@/components/forms";
 import { EmptyState, Field, Kpi, PageHeader, ProgressBar } from "@/components/ui";
+import type { CSSProperties } from "react";
 import type { Card, Purchase } from "@/db/schema";
-import { cardBackground } from "@/lib/catalogs";
+import { cardBackground, cardInk } from "@/lib/catalogs";
 import type { Finance } from "@/lib/finance";
 import { longDate, money, shortDate, shortMonthYear } from "@/lib/format";
 import { getFinance } from "@/lib/page-helpers";
@@ -146,34 +147,20 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
                     </table>
                   </details>
                 )}
-                <details>
-                  <summary>Calendario</summary>
-                  <table>
-                    <tbody>
-                      {s.schedule.map((x, i) => (
-                        <tr key={x.period}>
-                          <td style={{ textTransform: "capitalize" }}>
-                            {x.settlement ? "Liquidación" : `${i + 1}/${s.months}`} · {shortMonthYear(x.period)}
-                          </td>
-                          <td className="r num">{money(x.amount)}</td>
-                          {x.interest > 0 && <td className="r num small muted">int. {money(x.interest)}</td>}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </details>
+                <InstallmentCalendar s={s} />
               </td>
               <td className="r num" data-label="Mensualidad">
                 {money(s.installment)}
               </td>
               <td className="full" style={{ minWidth: 120 }}>
-                <ProgressBar value={s.months ? s.paidCount / s.months : 0} color={s.card?.color} />
+                <SegmentedProgress s={s} />
                 <span className="small muted">
                   {s.paidCount} de {s.months} pagadas · termina {shortMonthYear(s.end)}
                 </span>
-                {s.billedCount > s.paidCount && s.active && (
+                {billed(s) && s.active && (
                   <span className="small muted" style={{ display: "block" }}>
-                    Tu estado de cuenta ya dice {Math.min(s.billedCount, s.months)} de {s.months}
+                    Tu estado de cuenta ya trae la {billed(s)!.n} de {s.months}
+                    {billed(s)!.dueDate && ` · vence ${shortDate(billed(s)!.dueDate!)}`}
                   </span>
                 )}
                 {s.settled && <span className="pill good">Liquidada</span>}
@@ -221,5 +208,74 @@ function PurchaseTable({ rows, f }: { rows: Row[]; f: Finance }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+type Status = Row["s"];
+
+/** Latest installment already on a bank statement but not paid yet, numbered 1..N. */
+function billed(s: Status) {
+  const i = s.installments.findLastIndex((x) => x.state === "billed");
+  return i < 0 ? null : { ...s.installments[i], n: i + 1 };
+}
+
+/** One segment per installment: paid filled, on a statement half-filled, still to come empty. */
+function SegmentedProgress({ s }: { s: Status }) {
+  // Long plans would turn into hairlines; a plain bar reads better there.
+  if (s.installments.length > 24) return <ProgressBar value={s.months ? s.paidCount / s.months : 0} color={s.card?.color} />;
+  return (
+    <div className="segbar" role="img" aria-label={`${s.paidCount} de ${s.months} mensualidades pagadas`} style={{ "--plan": s.card?.color } as CSSProperties}>
+      {s.installments.map((x) => (
+        <i key={x.period} className={x.state} />
+      ))}
+    </div>
+  );
+}
+
+/** The month-by-month plan, as a timeline: what is paid, what to pay now and what is still to come. */
+function InstallmentCalendar({ s }: { s: Status }) {
+  // The installment that needs attention: the one on a statement, or else the next one to be charged.
+  const focus = s.installments.findIndex((x) => x.state === "billed") >= 0 ? s.installments.findIndex((x) => x.state === "billed") : s.installments.findIndex((x) => x.state === "upcoming");
+  const next = focus >= 0 ? s.installments[focus] : null;
+  return (
+    <details className="plan">
+      <summary>
+        Calendario
+        {next ? (
+          <span className="plan-next">
+            {" · "}
+            {next.state === "billed" ? "por pagar" : "siguiente"} <b className="num">{money(next.amount)}</b>
+            {next.state === "billed" && next.dueDate ? ` el ${shortDate(next.dueDate)}` : ` en ${shortMonthYear(next.period)}`}
+          </span>
+        ) : (
+          <span className="plan-next"> · todo pagado</span>
+        )}
+      </summary>
+      <ol className="plan-steps" style={{ "--plan": s.card?.color, "--plan-ink": s.card ? cardInk(s.card.color) : undefined } as CSSProperties}>
+        {s.installments.map((x, i) => (
+          <li key={x.period} className={`plan-step ${x.state}${i === focus ? " focus" : ""}`}>
+            <span className="plan-mark" aria-hidden>
+              {x.state === "paid" ? "✓" : x.settlement ? "L" : i + 1}
+            </span>
+            <span className="plan-text">
+              <span className="plan-title">
+                {x.settlement ? "Liquidación" : `${i + 1} de ${s.months}`} · <span style={{ textTransform: "capitalize" }}>{shortMonthYear(x.period)}</span>
+              </span>
+              <span className="plan-sub">
+                {x.state === "paid"
+                  ? "Pagada"
+                  : x.state === "billed"
+                    ? `Ya en tu estado de cuenta${x.dueDate ? ` · vence ${shortDate(x.dueDate)}` : ""}`
+                    : x.cutoffDate
+                      ? `Se carga en el corte del ${shortDate(x.cutoffDate)}`
+                      : "Por venir"}
+                {x.interest > 0 && ` · incluye ${money(x.interest)} de interés`}
+              </span>
+            </span>
+            <span className="plan-amount num">{money(x.amount)}</span>
+          </li>
+        ))}
+      </ol>
+    </details>
   );
 }
